@@ -42,6 +42,7 @@ namespace MetaMit.Client.Base
         {
             socket = new Socket(ServerEp.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
             socket.BeginConnect(ServerEp, new AsyncCallback(ConnectCallback), null);
+
             Task.Run(() =>
             {
                 OnServerConnectionPending?.Invoke(this, new MetaMitClientBaseEventArgs.ServerConnectionPending
