@@ -276,52 +276,6 @@ namespace MetaMit.Server.Base
 
 
 
-        #region SendingBlock
-        public void SendStringBlock(ClientConnection connection, string data)
-        {
-            if (!IsConnected(connection)) return;
-            byte[] byteData = Encoding.ASCII.GetBytes(data);
-            SendStateObject sendStateObject = new SendStateObject(connection);
-            sendStateObject.sendComplete.Set();
-            connection.socket.BeginSend(byteData, 0, byteData.Length, 0, new AsyncCallback(SendStringBlockCallback), sendStateObject);
-            sendStateObject.sendComplete.WaitOne();
-        }
-        private void SendStringBlockCallback(IAsyncResult ar)
-        {
-            SendStateObject sendStateObject = (SendStateObject)ar.AsyncState;
-
-            ClientConnection connection = sendStateObject.connection;
-
-            int bytesSent = 0;
-            try
-            {
-                bytesSent = connection.socket.EndSend(ar);
-                Task.Run(() =>
-                {
-                    OnDataSentEvent?.Invoke(this, new MetaMitServerBaseEventArgs.DataSent
-                    {
-                        connection = connection,
-                    });
-                });
-            }
-            catch (SocketException)
-            {
-                Guid guid = connection.guid;
-                connection.Dispose();
-                Task.Run(() =>
-                {
-                    OnConnectionLostEvent?.Invoke(this, new MetaMitServerBaseEventArgs.ConnectionLost
-                    {
-                        client = guid
-                    });
-                });
-            }
-            sendStateObject.sendComplete.Set();
-        }
-        #endregion SendingBlock
-
-
-
         // Pause heartbeat events for client when it is peacefully disconnecting
 
 
