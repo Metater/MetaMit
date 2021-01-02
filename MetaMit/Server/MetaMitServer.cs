@@ -89,7 +89,8 @@ namespace MetaMit.Server
             Base.ClientConnection connection = new Base.ClientConnection();
             Guid guid = Guid.NewGuid();
             connection.socket = e.socket;
-            server.AcceptClient(guid, connection, Clients.Count);
+            connection.guid = guid;
+            server.AcceptClient(connection, Clients.Count);
         }
         private void Server_OnConnectionAcceptedEvent(object sender, Base.MetaMitServerBaseEventArgs.ConnectionAccepted e)
         {
