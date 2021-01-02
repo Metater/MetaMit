@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Sockets;
 using System.Text;
 
 namespace MetaMit.Client.Base
@@ -14,6 +15,10 @@ namespace MetaMit.Client.Base
         {
 
         }
+        public class ServerConnectionFailed
+        {
+
+        }
         public class ServerConnectionEnded
         {
 
@@ -24,11 +29,12 @@ namespace MetaMit.Client.Base
         }
         public class DataReceived
         {
-
+            public Socket socket;
+            public string data;
         }
         public class DataSent
         {
-
+            public int bytesSent;
         }
     }
 }

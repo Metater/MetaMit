@@ -17,6 +17,10 @@ namespace MetaMit.Client.Base
         public IPEndPoint ServerEp { get; private set; }
         public bool IsConnected { get; private set; } = false;
         public Socket socket;
+        // Receiving data
+        public const int BufferSize = 1024;
+        public byte[] buffer = new byte[BufferSize];
+        public StringBuilder sb = new StringBuilder();
         // Events
         public event Action OnServerStart;
         public event Action OnServerStop;
@@ -25,6 +29,7 @@ namespace MetaMit.Client.Base
 
         public event EventHandler<MetaMitClientBaseEventArgs.ServerConnectionPending> OnServerConnectionPending;
         public event EventHandler<MetaMitClientBaseEventArgs.ServerConnectionAccepted> OnServerConnectionAccepted;
+        public event EventHandler<MetaMitClientBaseEventArgs.ServerConnectionFailed> OnServerConnectionFailed;
         public event EventHandler<MetaMitClientBaseEventArgs.ServerConnectionEnded> OnServerConnectionEnded;
         public event EventHandler<MetaMitClientBaseEventArgs.ServerConnectionLost> OnServerConnectionLost;
 
@@ -51,7 +56,7 @@ namespace MetaMit.Client.Base
                 });
             });
         }
-        public void ConnectCallback(IAsyncResult ar)
+        private void ConnectCallback(IAsyncResult ar)
         {
             try
             {
@@ -63,9 +68,63 @@ namespace MetaMit.Client.Base
                     {
                         
                     });
+                    // May want to move StartReceiveLoop in here to ensure all accept processing is done before receiving is started
                 });
+
+                StartReceiveLoop();
             }
             catch(SocketException)
+            {
+                Task.Run(() =>
+                {
+                    OnServerConnectionFailed?.Invoke(this, new MetaMitClientBaseEventArgs.ServerConnectionFailed
+                    {
+
+                    });
+                });
+            }
+        }
+        private void StartReceiveLoop()
+        {
+            try
+            {
+                socket.BeginReceive(buffer, 0, BufferSize, 0, new AsyncCallback(ReceiveCallback), null);
+            }
+            catch (Exception e)
+            {
+                // Figure out what error this would be
+                Console.WriteLine(e.ToString());
+            }
+        }
+        private void ReceiveCallback(IAsyncResult ar)
+        {
+            try
+            {
+                int bytesRead = 0;
+                bytesRead = socket.EndReceive(ar);
+                string content = string.Empty;
+                if (bytesRead > 0)
+                {
+                    sb.Append(Encoding.ASCII.GetString(buffer, 0, bytesRead));
+                    content = sb.ToString();
+                    if (content.IndexOf("<EOT>") > -1)
+                    {
+                        buffer = new byte[BufferSize];
+                        sb = new StringBuilder();
+                        // Data receive done content filled with data, add event later
+                        Task.Run(() =>
+                        {
+                            OnDataReceived?.Invoke(this, new MetaMitClientBaseEventArgs.DataReceived
+                            {
+                                socket = socket,
+                                data = content
+                            });
+                        });
+                    }
+                }
+                socket.BeginReceive(buffer, 0, BufferSize, 0, new AsyncCallback(ReceiveCallback), null);
+            }
+            catch (SocketException)
             {
                 Task.Run(() =>
                 {
@@ -75,10 +134,32 @@ namespace MetaMit.Client.Base
                     });
                 });
             }
-        }
-        public void StartReceiveLoop()
-        {
 
+        }
+        public void SendString(string data)
+        {
+            byte[] byteData = Encoding.ASCII.GetBytes(data);
+            socket.BeginSend(byteData, 0, byteData.Length, 0, new AsyncCallback(SendCallback), null);
+        }
+        private void SendCallback(IAsyncResult ar)
+        {
+            try
+            {
+                int bytesSent = 0;
+                bytesSent = socket.EndSend(ar);
+                Task.Run(() =>
+                {
+                    OnDataSent?.Invoke(this, new MetaMitClientBaseEventArgs.DataSent
+                    {
+                        bytesSent = bytesSent
+                    });
+                });
+            }
+            // Replace with SocketExeption when error known
+            catch (Exception e)
+            {
+                Console.WriteLine(e.ToString());
+            }
         }
     }
 }

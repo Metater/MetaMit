@@ -33,6 +33,7 @@ namespace MetaMit.Server.Base
         public class DataSent
         {
             public ClientConnection connection;
+            public int bytesSent;
         }
         /*
         public class LoopbackReceive

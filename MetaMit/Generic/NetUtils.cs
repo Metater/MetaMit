@@ -17,5 +17,9 @@ namespace MetaMit.Generic
         {
             return new IPEndPoint(ipAddress, port);
         }
+        public static IPEndPoint GetLocalEndPoint(int port)
+        {
+            return new IPEndPoint(GetIP(), port);
+        }
     }
 }

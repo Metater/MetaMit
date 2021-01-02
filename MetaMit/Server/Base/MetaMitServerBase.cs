@@ -62,8 +62,8 @@ namespace MetaMit.Server.Base
         {
             Backlog = backlog;
 
-            Ip = Generic.GetIP();
-            Ep = Generic.GetEndPoint(Ip, port);
+            Ip = Generic.NetUtils.GetIP();
+            Ep = Generic.NetUtils.GetEndPoint(Ip, port);
 
             Listener = new Socket(Ip.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
         }
@@ -249,7 +249,8 @@ namespace MetaMit.Server.Base
                 {
                     OnDataSentEvent?.Invoke(this, new MetaMitServerBaseEventArgs.DataSent
                     {
-                        connection = connection
+                        connection = connection,
+                        bytesSent = bytesSent
                     });
                 });
             }
