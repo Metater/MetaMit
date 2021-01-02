@@ -2,12 +2,13 @@
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
+using System.Net.Sockets;
 
 namespace MetaMit.Server
 {
     public class MetaMitServer
     {
-        private Base.MetaMitServerBase server;
+        public Base.MetaMitServerBase server;
         public Dictionary<Guid, Base.ClientConnection> Clients { get; private set; } = new Dictionary<Guid, Base.ClientConnection>();
 
 

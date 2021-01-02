@@ -62,10 +62,16 @@ namespace MetaMit.Server.Base
         {
             Backlog = backlog;
 
-            Ip = Generic.NetUtils.GetIP();
+            Ip = Generic.NetUtils.GetLocalIPv4();
             Ep = Generic.NetUtils.GetEndPoint(Ip, port);
 
+            //https://stackoverflow.com/questions/1285953/c-sharp-server-that-supports-ipv6-and-ipv4-on-the-same-port
+
             Listener = new Socket(Ip.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+            //Listener = new Socket(AddressFamily.InterNetworkV6, SocketType.Stream, ProtocolType.Tcp);
+            //Listener = new Socket(addressFamily, SocketType.Stream, ProtocolType.Tcp);
+            //Listener.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IPv6Only, false);
+            Console.WriteLine(Ip);
         }
 
 
