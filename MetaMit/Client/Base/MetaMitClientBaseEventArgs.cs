@@ -7,32 +7,32 @@ namespace MetaMit.Client.Base
 {
     public class MetaMitClientBaseEventArgs
     {
-        public class ServerConnectionPending
+        public class ServerConnectionPending : EventArgs
         {
 
         }
-        public class ServerConnectionAccepted
+        public class ServerConnectionAccepted : EventArgs
         {
 
         }
-        public class ServerConnectionFailed
+        public class ServerConnectionFailed : EventArgs
         {
 
         }
-        public class ServerConnectionEnded
+        public class ServerConnectionEnded : EventArgs
         {
 
         }
-        public class ServerConnectionLost
+        public class ServerConnectionLost : EventArgs
         {
 
         }
-        public class DataReceived
+        public class DataReceived : EventArgs
         {
             public Socket socket;
             public string data;
         }
-        public class DataSent
+        public class DataSent : EventArgs
         {
             public int bytesSent;
         }

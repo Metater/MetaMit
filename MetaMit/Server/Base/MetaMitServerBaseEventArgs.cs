@@ -8,38 +8,32 @@ namespace MetaMit.Server.Base
 {
     public class MetaMitServerBaseEventArgs
     {
-        public class ConnectionPending
+        public class ConnectionPending : EventArgs
         {
             public Socket socket;
         }
-        public class ConnectionAccepted
+        public class ConnectionAccepted : EventArgs
         {
             public ClientConnection connection;
             public int clientCount;
         }
-        public class ConnectionEnded
+        public class ConnectionEnded : EventArgs
         {
             public Guid client;
         }
-        public class ConnectionLost
+        public class ConnectionLost : EventArgs
         {
             public Guid client;
         }
-        public class DataReceived
+        public class DataReceived : EventArgs
         {
             public ClientConnection connection;
             public string data;
         }
-        public class DataSent
+        public class DataSent : EventArgs
         {
             public ClientConnection connection;
             public int bytesSent;
         }
-        /*
-        public class LoopbackReceive
-        {
-            public ClientConnection connection;
-        }
-        */
     }
 }

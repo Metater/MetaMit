@@ -45,6 +45,7 @@ namespace MetaMit.Client.Base
         }
         public void ConnectToServer()
         {
+            // AddressFamily
             socket = new Socket(ServerEp.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
             socket.BeginConnect(ServerEp, new AsyncCallback(ConnectCallback), null);
 

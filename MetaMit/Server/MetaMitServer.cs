@@ -43,6 +43,13 @@ namespace MetaMit.Server
                 KickClient(client, message);
             }
         }
+        public void BroadcastString(string message)
+        {
+            foreach (Base.ClientConnection connection in Clients.Values)
+            {
+                server.SendString(connection, message);
+            }
+        }
         #endregion PublicMethods
 
 
