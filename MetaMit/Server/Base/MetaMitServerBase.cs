@@ -62,8 +62,8 @@ namespace MetaMit.Server.Base
         {
             Backlog = backlog;
 
-            Ip = Generic.NetUtils.GetLocalIPv4();
-            Ep = Generic.NetUtils.GetEndPoint(Ip, port);
+            Ip = Utils.NetUtils.GetLocalIPv4();
+            Ep = Utils.NetUtils.GetEndPoint(Ip, port);
 
             // IPv4 only works for now
 
@@ -139,6 +139,20 @@ namespace MetaMit.Server.Base
 
 
         #region Receiving
+        public void AcceptClient(ClientConnection connection, int clientCount)
+        {
+            // Could add time since last receive in StateObject if want to use keep alive and kick people off if no packets
+            connection.socket.BeginReceive(connection.buffer, 0, ClientConnection.BufferSize, 0, new AsyncCallback(ReceiveCallback), connection);
+
+            Task.Run(() =>
+            {
+                OnConnectionAcceptedEvent?.Invoke(this, new MetaMitServerBaseEventArgs.ConnectionAccepted
+                {
+                    connection = connection,
+                    clientCount = clientCount
+                });
+            });
+        }
         // Async callback for a client after BeginAccept
         private void AcceptCallback(IAsyncResult ar)
         {
@@ -159,23 +173,6 @@ namespace MetaMit.Server.Base
                 OnConnectionPendingEvent?.Invoke(this, new MetaMitServerBaseEventArgs.ConnectionPending
                 {
                     socket = client
-                });
-            });
-        }
-        /// <summary>
-        /// Starts the receive callback loop for a client
-        /// </summary>
-        public void AcceptClient(ClientConnection connection, int clientCount)
-        {
-            // Could add time since last receive in StateObject if want to use keep alive and kick people off if no packets
-            connection.socket.BeginReceive(connection.buffer, 0, ClientConnection.BufferSize, 0, new AsyncCallback(ReceiveCallback), connection);
-
-            Task.Run(() =>
-            {
-                OnConnectionAcceptedEvent?.Invoke(this, new MetaMitServerBaseEventArgs.ConnectionAccepted
-                {
-                    connection = connection,
-                    clientCount = clientCount
                 });
             });
         }
@@ -235,10 +232,16 @@ namespace MetaMit.Server.Base
 
 
         #region Sending
-        // Send a string to client with guid and data             MAY WANT TO MAKE ASYNC later
         public void SendString(ClientConnection connection, string data)
         {
             if (!IsConnected(connection)) return;
+            byte[] byteData = Encoding.ASCII.GetBytes(data);
+            connection.socket.BeginSend(byteData, 0, byteData.Length, 0, new AsyncCallback(SendCallback), connection);
+        }
+        public void SendStringEOT(ClientConnection connection, string data)
+        {
+            if (!IsConnected(connection)) return;
+            data += "<EOT>";
             byte[] byteData = Encoding.ASCII.GetBytes(data);
             connection.socket.BeginSend(byteData, 0, byteData.Length, 0, new AsyncCallback(SendCallback), connection);
         }

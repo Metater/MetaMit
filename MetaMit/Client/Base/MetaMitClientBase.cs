@@ -142,6 +142,12 @@ namespace MetaMit.Client.Base
             byte[] byteData = Encoding.ASCII.GetBytes(data);
             socket.BeginSend(byteData, 0, byteData.Length, 0, new AsyncCallback(SendCallback), null);
         }
+        public void SendStringEOT(string data)
+        {
+            data += "<EOT>";
+            byte[] byteData = Encoding.ASCII.GetBytes(data);
+            socket.BeginSend(byteData, 0, byteData.Length, 0, new AsyncCallback(SendCallback), null);
+        }
         private void SendCallback(IAsyncResult ar)
         {
             try

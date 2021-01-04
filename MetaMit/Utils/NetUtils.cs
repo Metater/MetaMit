@@ -4,7 +4,7 @@ using System.Text;
 using System.Net;
 using System.Net.Sockets;
 
-namespace MetaMit.Generic
+namespace MetaMit.Utils
 {
     public static class NetUtils
     {

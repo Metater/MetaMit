@@ -10,6 +10,7 @@ namespace MetaMit.Server
     {
         public Base.MetaMitServerBase server;
         public Dictionary<Guid, Base.ClientConnection> Clients { get; private set; } = new Dictionary<Guid, Base.ClientConnection>();
+        public List<Base.ClientConnection> ConnectingClients { get; private set; } = new List<Base.ClientConnection>();
 
 
 
@@ -33,7 +34,7 @@ namespace MetaMit.Server
         public void KickClient(Guid guid, string message)
         {
             Base.ClientConnection connection = Clients[guid];
-            server.SendString(connection, message);
+            server.SendStringEOT(connection, message);
             server.DisconnectClient(connection);
             Clients.Remove(guid);
         }
