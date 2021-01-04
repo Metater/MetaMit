@@ -23,6 +23,9 @@ namespace MetaMit.Server.Base
 
         public bool IsDisposed { get; private set; } = false;
 
+        public ClientConnection() { }
+        public ClientConnection(Guid guid, Socket socket) { this.guid = guid; this.socket = socket; }
+
         public void Dispose()
         {
             IsDisposed = true;

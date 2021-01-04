@@ -87,10 +87,8 @@ namespace MetaMit.Server
         private void Server_OnConnectionPendingEvent(object sender, Base.MetaMitServerBaseEventArgs.ConnectionPending e)
         {
             Console.WriteLine("Connection pending...");
-            Base.ClientConnection connection = new Base.ClientConnection();
             Guid guid = Guid.NewGuid();
-            connection.socket = e.socket;
-            connection.guid = guid;
+            Base.ClientConnection connection = new Base.ClientConnection(guid, e.socket);
             server.AcceptClient(connection, Clients.Count);
         }
         private void Server_OnConnectionAcceptedEvent(object sender, Base.MetaMitServerBaseEventArgs.ConnectionAccepted e)
@@ -144,7 +142,7 @@ namespace MetaMit.Server
         For disconneting:
           Client requests to server to be disconnected for graceful disconnect
  
-        Add a IsConnected listener
+        Add a Polling listener, checks for loss of connection
         */
         #endregion Notes
     }
