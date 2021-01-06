@@ -212,19 +212,38 @@ namespace MetaMit.Server.Base
                     connection.buffer = new byte[ClientConnection.BufferSize];
                     connection.sb = new StringBuilder();
 
+                    connection.socket.BeginReceive(connection.buffer, 0, ClientConnection.BufferSize, 0, new AsyncCallback(ReceiveCallback), connection);
 
-
-                    // Data receive done content filled with data, add event later
-                    Task.Run(() =>
-                    {
-                        OnDataReceivedEvent?.Invoke(this, new MetaMitServerBaseEventArgs.DataReceived
-                        {
-                            connection = connection,
-                            data = content
-                        });
-                    });
+                    HandleData(content, connection);
+                    return;
                 }
                 connection.socket.BeginReceive(connection.buffer, 0, ClientConnection.BufferSize, 0, new AsyncCallback(ReceiveCallback), connection);
+                return;
+            }
+            // Buffer underflow thingy, research
+        }
+        private void HandleData(string data, ClientConnection connection)
+        {
+            if (connection.state.Equals(ClientConnectionState.ConnectedAndEncrypted))
+            {
+                OnDataReceivedEvent?.Invoke(this, new MetaMitServerBaseEventArgs.DataReceived
+                {
+                    connection = connection,
+                    data = data
+                });
+                return; // Normal data recieved, handle with data recieved event
+            }
+            switch(connection.state)
+            {
+                case ClientConnectionState.Connected:
+                    // May want to handle higher up, when accepted do stuff this would do,
+                    //and some of these steps may be non server controlled nessessary or unness ------------------------------- Left off on
+                    break;
+                case ClientConnectionState.ClientGaveRSAPublicKey:
+                    break;
+                case ClientConnectionState.ServerGaveAESKey:
+                    break;
+                default: return;
             }
         }
         #endregion Receiving

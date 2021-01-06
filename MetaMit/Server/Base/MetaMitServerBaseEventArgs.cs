@@ -12,6 +12,11 @@ namespace MetaMit.Server.Base
         {
             public Socket socket;
         }
+        public class ConnectionStep : EventArgs
+        {
+            public ClientConnection connection;
+            public string data;
+        }
         public class ConnectionAccepted : EventArgs
         {
             public ClientConnection connection;
