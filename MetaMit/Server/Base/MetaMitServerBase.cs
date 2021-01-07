@@ -224,7 +224,7 @@ namespace MetaMit.Server.Base
         }
         private void HandleData(string data, ClientConnection connection)
         {
-            if (connection.state.Equals(ClientConnectionState.ConnectedAndEncrypted))
+            if (connection.state == ClientConnectionState.ConnectedAndEncrypted)
             {
                 OnDataReceivedEvent?.Invoke(this, new MetaMitServerBaseEventArgs.DataReceived
                 {
@@ -236,8 +236,10 @@ namespace MetaMit.Server.Base
             switch(connection.state)
             {
                 case ClientConnectionState.Connected:
+                    if ()
                     // May want to handle higher up, when accepted do stuff this would do,
                     //and some of these steps may be non server controlled nessessary or unness ------------------------------- Left off on
+                    // May want to Make ConnectedEncryptedAndCompressing?!?!?
                     break;
                 case ClientConnectionState.ClientGaveRSAPublicKey:
                     break;
