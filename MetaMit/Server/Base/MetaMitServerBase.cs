@@ -50,12 +50,7 @@ namespace MetaMit.Server.Base
         public event EventHandler<MetaMitServerBaseEventArgs.ConnectionLost> OnConnectionLostEvent;
 
         public event EventHandler<MetaMitServerBaseEventArgs.DataReceived> OnDataReceivedEvent;
-        public event EventHandler<MetaMitServerBaseEventArgs.DataSent> OnDataSentEvent;
-        // Loopback Events
-        //public event EventHandler<MetaMitServerBaseEventArgs.LoopbackReceive> LoopbackReceive;
         #endregion Fields
-
-
 
         // Constructor
         public MetaMitServerBase(int port, int backlog)
@@ -74,27 +69,7 @@ namespace MetaMit.Server.Base
             //Listener.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IPv6Only, false);
         }
 
-
-        #region GenericMethods
-        public bool IsConnected(ClientConnection connection)
-        {
-            if (connection.IsDisposed)
-            {
-                return false;
-            }
-            if (!connection.socket.Connected)
-            {
-                connection.Dispose();
-                return false;
-            }
-            return true;
-        }
-        #endregion GenericMethods
-
-
-
         #region Listening
-        // Start listening on a different thread
         public void StartListening()
         {
             listeningThread = new Thread(new ThreadStart(() =>
@@ -103,9 +78,8 @@ namespace MetaMit.Server.Base
                 {
                     Listener.Bind(Ep);
                     Listener.Listen(Backlog);
-                    IsListening = true;
 
-                    OnServerStartEvent?.Invoke();
+                    ServerStart();
 
                     while (true)
                     {
@@ -115,17 +89,16 @@ namespace MetaMit.Server.Base
                         if (listenerCts.Token.IsCancellationRequested) break;
                         listenerDoneCycle.WaitOne();
                     }
+
+                    ServerStop();
                 }
                 catch (Exception e)
                 {
                     Console.WriteLine(e.ToString());
                 }
-                OnServerStopEvent?.Invoke();
-                IsListening = false;
             }));
             listeningThread.Start();
         }
-        // Stop listening
         public void StopListening()
         {
             IsListening = false;
@@ -136,24 +109,15 @@ namespace MetaMit.Server.Base
         }
         #endregion Listening
 
-
-
-        #region Receiving
+        #region Accepting
         public void AcceptClient(ClientConnection connection, int clientCount)
         {
             // Could add time since last receive in StateObject if want to use keep alive and kick people off if no packets
             connection.socket.BeginReceive(connection.buffer, 0, ClientConnection.BufferSize, 0, new AsyncCallback(ReceiveCallback), connection);
 
-            Task.Run(() =>
-            {
-                OnConnectionAcceptedEvent?.Invoke(this, new MetaMitServerBaseEventArgs.ConnectionAccepted
-                {
-                    connection = connection,
-                    clientCount = clientCount
-                });
-            });
+            // REMOVE CLIENT COUNT LATER WHEN OTHER CODE IS TRANSFERRED INTO SERVERBASE
+            ConnectionAccepted(connection, clientCount);
         }
-        // Async callback for a client after BeginAccept
         private void AcceptCallback(IAsyncResult ar)
         {
             listenerDoneCycle.Set();
@@ -162,81 +126,60 @@ namespace MetaMit.Server.Base
 
             Socket listener = (Socket)ar.AsyncState;
             Socket client = listener.EndAccept(ar);
+            ConnectionPending(client);
 
-            // Could make recursive accepting
-
-            ClientConnection connection = new ClientConnection();
-            connection.socket = client;
-
-            Task.Run(() =>
-            {
-                OnConnectionPendingEvent?.Invoke(this, new MetaMitServerBaseEventArgs.ConnectionPending
-                {
-                    socket = client
-                });
-            });
+            /*
+             * 
+             * Replace with code for accepting a client through each state
+             * 
+             * 
+             * 
+            */
         }
-        // Async callback for a client after BeginReceive
+        #endregion Accepting
+
+        #region Receiving
         private void ReceiveCallback(IAsyncResult ar)
         {
             ClientConnection connection = (ClientConnection)ar.AsyncState;
 
-            if (connection.IsDisposed) return; // Connection was ended properly, stop receive callback loop
+            if (connection.IsClosed) return; // Connection was ended properly, stop receive callback loop
 
-            Socket client = connection.socket;
-
-            String content = String.Empty;
             int bytesRead = 0;
             try
             {
-                bytesRead = client.EndReceive(ar);
+                bytesRead = connection.socket.EndReceive(ar);
             }
             catch (SocketException)
             {
-                Guid guid = connection.guid;
-                connection.Dispose();
-                Task.Run(() =>
-                {
-                    OnConnectionLostEvent?.Invoke(this, new MetaMitServerBaseEventArgs.ConnectionLost
-                    {
-                        client = guid
-                    });
-                });
+                ConnectionLost(connection);
             }
             if (bytesRead > 0)
             {
                 connection.sb.Append(Encoding.ASCII.GetString(connection.buffer, 0, bytesRead));
+                string content = string.Empty;
                 content = connection.sb.ToString();
                 if (content.IndexOf("<EOT>") > -1)
                 {
-                    connection.buffer = new byte[ClientConnection.BufferSize];
-                    connection.sb = new StringBuilder();
-
-                    connection.socket.BeginReceive(connection.buffer, 0, ClientConnection.BufferSize, 0, new AsyncCallback(ReceiveCallback), connection);
-
-                    HandleData(content, connection);
-                    return;
+                    connection.WipeBuffer();
+                    HandleData(connection, content);
                 }
                 connection.socket.BeginReceive(connection.buffer, 0, ClientConnection.BufferSize, 0, new AsyncCallback(ReceiveCallback), connection);
                 return;
             }
-            // Buffer underflow thingy, research
+            else
+                ConnectionEnded(connection);
         }
-        private void HandleData(string data, ClientConnection connection)
+        private void HandleData(ClientConnection connection, string data)
         {
             if (connection.state == ClientConnectionState.ConnectedAndEncrypted)
             {
-                OnDataReceivedEvent?.Invoke(this, new MetaMitServerBaseEventArgs.DataReceived
-                {
-                    connection = connection,
-                    data = data
-                });
+                DataReceived(connection, data);
                 return; // Normal data recieved, handle with data recieved event
             }
-            switch(connection.state)
+            switch (connection.state)
             {
                 case ClientConnectionState.Connected:
-                    if ()
                     // May want to handle higher up, when accepted do stuff this would do,
                     //and some of these steps may be non server controlled nessessary or unness ------------------------------- Left off on
                     // May want to Make ConnectedEncryptedAndCompressing?!?!?
@@ -250,18 +193,14 @@ namespace MetaMit.Server.Base
         }
         #endregion Receiving
 
-
-
         #region Sending
         public void SendString(ClientConnection connection, string data)
         {
-            if (!IsConnected(connection)) return;
             byte[] byteData = Encoding.ASCII.GetBytes(data);
             connection.socket.BeginSend(byteData, 0, byteData.Length, 0, new AsyncCallback(SendCallback), connection);
         }
         public void SendStringEOT(ClientConnection connection, string data)
         {
-            if (!IsConnected(connection)) return;
             data += "<EOT>";
             byte[] byteData = Encoding.ASCII.GetBytes(data);
             connection.socket.BeginSend(byteData, 0, byteData.Length, 0, new AsyncCallback(SendCallback), connection);
@@ -270,78 +209,111 @@ namespace MetaMit.Server.Base
         {
             ClientConnection connection = (ClientConnection)ar.AsyncState;
 
-            int bytesSent = 0;
             try
             {
-                bytesSent = connection.socket.EndSend(ar);
-                Task.Run(() =>
-                {
-                    OnDataSentEvent?.Invoke(this, new MetaMitServerBaseEventArgs.DataSent
-                    {
-                        connection = connection,
-                        bytesSent = bytesSent
-                    });
-                });
+                connection.socket.EndSend(ar);
             }
             catch (SocketException)
             {
-                Guid guid = connection.guid;
-                connection.Dispose();
-                Task.Run(() =>
-                {
-                    OnConnectionLostEvent?.Invoke(this, new MetaMitServerBaseEventArgs.ConnectionLost
-                    {
-                        client = guid
-                    });
-                });
+                ConnectionLost(connection);
             }
         }
         #endregion Sending
 
-
-
-        // Pause heartbeat events for client when it is peacefully disconnecting
-
-
-
         #region Disconnecting
-        // Disconnect a client with guid
         public void DisconnectClient(ClientConnection connection)
         {
-            if (!connection.IsDisposed)
-                connection.socket.BeginDisconnect(false, new AsyncCallback(DisconnectCallback), connection);
+            connection.socket.BeginDisconnect(false, new AsyncCallback(DisconnectCallback), connection);
         }
-        // Async callback for a client after BeginDisconnect
         private void DisconnectCallback(IAsyncResult ar)
         {
             ClientConnection connection = (ClientConnection)ar.AsyncState;
-            Socket client = connection.socket;
 
             try
             {
                 connection.socket.EndDisconnect(ar);
             }
-            catch (ObjectDisposedException)
-            {
-                Console.WriteLine("Client disposed at wierd time during disconnect");
-            }
             catch (SocketException)
             {
-
+                // If this, connection was already closed unexpectedly by client, treat as ended
             }
-            Guid guid = connection.guid;
-            connection.Dispose();
+            ConnectionEnded(connection);
+        }
+        #endregion Disconnecting
+
+        #region Events
+        private void ConnectionPending(Socket client)
+        {
+            Task.Run(() =>
+            {
+                OnConnectionPendingEvent?.Invoke(this, new MetaMitServerBaseEventArgs.ConnectionPending
+                {
+                    socket = client
+                });
+            });
+        }
+        private void ConnectionAccepted(ClientConnection connection, int clientCount)
+        {
+            Task.Run(() =>
+            {
+                OnConnectionAcceptedEvent?.Invoke(this, new MetaMitServerBaseEventArgs.ConnectionAccepted
+                {
+                    connection = connection,
+                    clientCount = clientCount
+                });
+            });
+        }
+        private void ConnectionEnded(ClientConnection connection)
+        {
             Task.Run(() =>
             {
                 OnConnectionEndedEvent?.Invoke(this, new MetaMitServerBaseEventArgs.ConnectionEnded
                 {
-                    client = guid
+                    client = connection.guid
+                });
+            });
+            connection.Close();
+        }
+        private void ConnectionLost(ClientConnection connection)
+        {
+            Task.Run(() =>
+            {
+                OnConnectionLostEvent?.Invoke(this, new MetaMitServerBaseEventArgs.ConnectionLost
+                {
+                    client = connection.guid
+                });
+            });
+            connection.Close();
+        }
+        
+        private void DataReceived(ClientConnection connection, string data)
+        {
+            Task.Run(() =>
+            {
+                OnDataReceivedEvent?.Invoke(this, new MetaMitServerBaseEventArgs.DataReceived
+                {
+                    connection = connection,
+                    data = data
                 });
             });
         }
-        #endregion Disconnecting
 
-
+        private void ServerStart()
+        {
+            IsListening = true;
+            Task.Run(() =>
+            {
+                OnServerStartEvent?.Invoke();
+            });
+        }
+        private void ServerStop()
+        {
+            Task.Run(() =>
+            {
+                OnServerStopEvent?.Invoke();
+            });
+        }
+        #endregion Events
 
         public void Dispose()
         {
