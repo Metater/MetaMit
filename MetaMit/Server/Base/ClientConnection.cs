@@ -7,7 +7,7 @@ using System.Net.Sockets;
 
 namespace MetaMit.Server.Base
 {
-    public class ClientConnection : IDisposable
+    public class ClientConnection
     {
         public const int BufferSize = 1024;
         public byte[] buffer = new byte[BufferSize];
@@ -21,14 +21,19 @@ namespace MetaMit.Server.Base
         public string clientRSAPublicKey;
         public string sessionAESKey;
 
-        public bool IsDisposed { get; private set; } = false;
+        public bool IsClosed { get; private set; } = false;
 
         public ClientConnection() { }
         public ClientConnection(Guid guid, Socket socket) { this.guid = guid; this.socket = socket; }
 
-        public void Dispose()
+        public void WipeBuffer()
         {
-            IsDisposed = true;
+            buffer = new byte[BufferSize];
+            sb = new StringBuilder();
+        }
+        public void Close()
+        {
+            IsClosed = true;
 
             socket.Dispose();
         }
