@@ -18,10 +18,6 @@ namespace MetaMit.Server.Base
         /// </summary>
         public int Backlog { get; private set; }
         /// <summary>
-        /// The server's internet protocol address
-        /// </summary>
-        public IPAddress Ip { get; private set; }
-        /// <summary>
         /// Server's end point that it binds the listening socket to
         /// </summary>
         public IPEndPoint Ep { get; private set; }
@@ -57,16 +53,10 @@ namespace MetaMit.Server.Base
         {
             Backlog = backlog;
 
-            Ip = Utils.NetUtils.GetLocalIPv4();
-            Ep = Utils.NetUtils.GetEndPoint(Ip, port);
+            Ep = Utils.NetUtils.GetEndPoint(Utils.NetUtils.GetLocalIPv4(), port);
 
-            // IPv4 only works for now
-
-            //https://stackoverflow.com/questions/1285953/c-sharp-server-that-supports-ipv6-and-ipv4-on-the-same-port
-            Listener = new Socket(Ip.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-            //Listener = new Socket(AddressFamily.InterNetworkV6, SocketType.Stream, ProtocolType.Tcp);
-            //Listener = new Socket(addressFamily, SocketType.Stream, ProtocolType.Tcp);
-            //Listener.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IPv6Only, false);
+            Listener = new Socket(AddressFamily.InterNetworkV6, SocketType.Stream, ProtocolType.Tcp);
+            Listener.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IPv6Only, false);
         }
 
         #region Listening
@@ -143,6 +133,8 @@ namespace MetaMit.Server.Base
         {
             ClientConnection connection = (ClientConnection)ar.AsyncState;
 
+            // Do more thinking about what causes this, do you need separate closes for properly closed, and forcibly
+            // Currently the same method ClientConnection.Close() is used for both connections being ended and lost
             if (connection.IsClosed) return; // Connection was ended properly, stop receive callback loop
 
             int bytesRead = 0;
@@ -153,6 +145,7 @@ namespace MetaMit.Server.Base
             catch (SocketException)
             {
                 ConnectionLost(connection);
+                return;
             }
             if (bytesRead > 0)
             {

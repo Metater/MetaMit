@@ -14,7 +14,9 @@ namespace MetaMit.Server.Base
         public StringBuilder sb = new StringBuilder();
         public Socket socket = null;
 
-        public ClientConnectionState state = ClientConnectionState.Connected;
+        //Be sure to uncomment when encryption and compression is added, another note: make want to make ConnectedAndEncryptedAndCompressing
+        //public ClientConnectionState state = ClientConnectionState.Connected;
+        public ClientConnectionState state = ClientConnectionState.ConnectedAndEncrypted;
         public DateTime creationTime;
         public Guid guid;
 
@@ -34,8 +36,6 @@ namespace MetaMit.Server.Base
         public void Close()
         {
             IsClosed = true;
-
-            socket.Dispose();
         }
     }
 }
