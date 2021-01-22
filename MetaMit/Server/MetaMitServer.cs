@@ -42,16 +42,18 @@ namespace MetaMit.Server
         public void KickAll(string message)
         {
             foreach (Guid client in Clients.Keys)
-            {
                 KickClient(client, message);
-            }
         }
         public void BroadcastString(string message)
         {
             foreach (Base.ClientConnection connection in Clients.Values)
-            {
                 server.SendString(connection, message);
-            }
+        }
+        public void BroadcastStringBut(string message, Guid guid)
+        {
+            foreach (Base.ClientConnection connection in Clients.Values)
+                if (connection.guid != guid)
+                    server.SendString(connection, message);
         }
         #endregion PublicMethods
 
@@ -69,7 +71,6 @@ namespace MetaMit.Server
             server.OnConnectionLostEvent += Server_OnConnectionLostEvent;
 
             server.OnDataReceivedEvent += Server_OnDataReceivedEvent;
-            server.OnDataSentEvent += Server_OnDataSentEvent;
         }
 
 
@@ -114,10 +115,6 @@ namespace MetaMit.Server
         private void Server_OnDataReceivedEvent(object sender, Base.MetaMitServerBaseEventArgs.DataReceived e)
         {
             Console.WriteLine("Data received, data: " + e.data);
-        }
-        private void Server_OnDataSentEvent(object sender, Base.MetaMitServerBaseEventArgs.DataSent e)
-        {
-            Console.WriteLine("Data sent, guid: " + e.connection.guid);
         }
         #endregion Events
 
