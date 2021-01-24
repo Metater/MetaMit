@@ -47,7 +47,7 @@ namespace MetaMit.Cryptography
                 {
                     aes.GenerateIV();
                     aes.GenerateKey();
-                    key = aes.Key.ToString();
+                    key = Convert.ToBase64String(aes.Key);
                     aes.Dispose();
                 }
                 return key;
