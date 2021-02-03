@@ -3,7 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.30717.126
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MetaMit", "MetaMit\MetaMit.csproj", "{DB6588AC-8E2A-47A2-B12A-F10F307C2984}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MetaMit", "MetaMit\MetaMit.csproj", "{DB6588AC-8E2A-47A2-B12A-F10F307C2984}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MetaMitUnity", "MetaMitUnity\MetaMitUnity.csproj", "{E8EC69ED-DDAB-46E3-813B-3CBE1D59E886}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +17,10 @@ Global
 		{DB6588AC-8E2A-47A2-B12A-F10F307C2984}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{DB6588AC-8E2A-47A2-B12A-F10F307C2984}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{DB6588AC-8E2A-47A2-B12A-F10F307C2984}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E8EC69ED-DDAB-46E3-813B-3CBE1D59E886}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E8EC69ED-DDAB-46E3-813B-3CBE1D59E886}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E8EC69ED-DDAB-46E3-813B-3CBE1D59E886}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E8EC69ED-DDAB-46E3-813B-3CBE1D59E886}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
