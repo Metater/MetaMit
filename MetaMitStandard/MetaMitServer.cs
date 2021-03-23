@@ -6,6 +6,7 @@ using System.Collections.Concurrent;
 using System.Net.Sockets;
 using System.Net;
 using System.Threading;
+using MetaMitStandard.Server;
 
 namespace MetaMitStandard
 {
@@ -24,6 +25,8 @@ namespace MetaMitStandard
         public event EventHandler<DataReceivedEventArgs> DataReceived;
         public event EventHandler<ServerStoppedEventArgs> ServerStopped;
 
+        private List<ClientConnection> connections = new List<ClientConnection>();
+
         public MetaMitServer(int port, int backlog)
         {
             this.backlog = backlog;
@@ -34,34 +37,41 @@ namespace MetaMitStandard
 
         public void Start()
         {
-            listeningThread = new Thread(new ThreadStart(() =>
+            //Action listener = new Action(Listen);
+            //listeningTask = Task.Run(listener);
+            Thread listeningThread = new Thread(new ThreadStart(() =>
             {
-                ServerStoppedEventArgs serverStopped = new ServerStoppedEventArgs();
-                try
-                {
-                    listener.Bind(ep);
-                    listener.Listen(backlog);
-                    while (true)
-                    {
-                        listenerDoneCycle.Reset();
-                        listener.BeginAccept(new AsyncCallback(AcceptCallback), listener);
-                        listenerDoneCycle.WaitOne();
-                        listenerCts.Token.ThrowIfCancellationRequested();
-                    }
-                }
-                catch (OperationCanceledException)
-                {
-                    serverStopped.reason = ServerStoppedReason.Commanded;
-                    serverStopped.message = "The server has stopped listening";
-                }
-                catch (Exception e)
-                {
-                    serverStopped.reason = ServerStoppedReason.Crashed;
-                    serverStopped.message = e.ToString();
-                }
-                ServerStopped?.Invoke(this, serverStopped);
+                Listen();
             }));
             listeningThread.Start();
+        }
+
+        private void Listen()
+        {
+            ServerStoppedEventArgs serverStopped = new ServerStoppedEventArgs();
+            try
+            {
+                listener.Bind(ep);
+                listener.Listen(backlog);
+                while (true)
+                {
+                    listenerDoneCycle.Reset();
+                    listener.BeginAccept(new AsyncCallback(AcceptCallback), listener);
+                    listenerDoneCycle.WaitOne();
+                    listenerCts.Token.ThrowIfCancellationRequested();
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                serverStopped.reason = ServerStoppedReason.Commanded;
+                serverStopped.message = "The server has stopped listening";
+            }
+            catch (Exception e)
+            {
+                serverStopped.reason = ServerStoppedReason.Crashed;
+                serverStopped.message = e.ToString();
+            }
+            ServerStopped?.Invoke(this, serverStopped);
         }
 
         public void Stop()

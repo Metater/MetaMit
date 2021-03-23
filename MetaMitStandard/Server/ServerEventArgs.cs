@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace MetaMitStandard
+namespace MetaMitStandard.Server
 {
     public class ClientConnectedEventArgs : EventArgs
     {
