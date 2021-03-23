@@ -40,12 +40,12 @@ namespace MetaMit.Server.Base
         public event Action OnServerStartEvent;
         public event Action OnServerStopEvent;
 
-        public event EventHandler<MetaMitServerBaseEventArgs.ConnectionPending> OnConnectionPendingEvent;
-        public event EventHandler<MetaMitServerBaseEventArgs.ConnectionAccepted> OnConnectionAcceptedEvent;
-        public event EventHandler<MetaMitServerBaseEventArgs.ConnectionEnded> OnConnectionEndedEvent;
-        public event EventHandler<MetaMitServerBaseEventArgs.ConnectionLost> OnConnectionLostEvent;
+        public event EventHandler<ServerBaseEventArgs.ConnectionPending> OnConnectionPendingEvent;
+        public event EventHandler<ServerBaseEventArgs.ConnectionAccepted> OnConnectionAcceptedEvent;
+        public event EventHandler<ServerBaseEventArgs.ConnectionEnded> OnConnectionEndedEvent;
+        public event EventHandler<ServerBaseEventArgs.ConnectionLost> OnConnectionLostEvent;
 
-        public event EventHandler<MetaMitServerBaseEventArgs.DataReceived> OnDataReceivedEvent;
+        public event EventHandler<ServerBaseEventArgs.DataReceived> OnDataReceivedEvent;
         #endregion Fields
 
         // Constructor
@@ -239,7 +239,7 @@ namespace MetaMit.Server.Base
         {
             Task.Run(() =>
             {
-                OnConnectionPendingEvent?.Invoke(this, new MetaMitServerBaseEventArgs.ConnectionPending
+                OnConnectionPendingEvent?.Invoke(this, new ServerBaseEventArgs.ConnectionPending
                 {
                     socket = client
                 });
@@ -249,7 +249,7 @@ namespace MetaMit.Server.Base
         {
             Task.Run(() =>
             {
-                OnConnectionAcceptedEvent?.Invoke(this, new MetaMitServerBaseEventArgs.ConnectionAccepted
+                OnConnectionAcceptedEvent?.Invoke(this, new ServerBaseEventArgs.ConnectionAccepted
                 {
                     connection = connection,
                     clientCount = clientCount
@@ -260,7 +260,7 @@ namespace MetaMit.Server.Base
         {
             Task.Run(() =>
             {
-                OnConnectionEndedEvent?.Invoke(this, new MetaMitServerBaseEventArgs.ConnectionEnded
+                OnConnectionEndedEvent?.Invoke(this, new ServerBaseEventArgs.ConnectionEnded
                 {
                     client = connection.guid
                 });
@@ -271,7 +271,7 @@ namespace MetaMit.Server.Base
         {
             Task.Run(() =>
             {
-                OnConnectionLostEvent?.Invoke(this, new MetaMitServerBaseEventArgs.ConnectionLost
+                OnConnectionLostEvent?.Invoke(this, new ServerBaseEventArgs.ConnectionLost
                 {
                     client = connection.guid
                 });
@@ -283,7 +283,7 @@ namespace MetaMit.Server.Base
         {
             Task.Run(() =>
             {
-                OnDataReceivedEvent?.Invoke(this, new MetaMitServerBaseEventArgs.DataReceived
+                OnDataReceivedEvent?.Invoke(this, new ServerBaseEventArgs.DataReceived
                 {
                     connection = connection,
                     data = data

@@ -86,14 +86,14 @@ namespace MetaMit.Server
 
 
 
-        private void Server_OnConnectionPendingEvent(object sender, Base.MetaMitServerBaseEventArgs.ConnectionPending e)
+        private void Server_OnConnectionPendingEvent(object sender, Base.ServerBaseEventArgs.ConnectionPending e)
         {
             Console.WriteLine("Connection pending...");
             Guid guid = Guid.NewGuid();
             Base.ClientConnection connection = new Base.ClientConnection(guid, e.socket);
             server.AcceptClient(connection, Clients.Count);
         }
-        private void Server_OnConnectionAcceptedEvent(object sender, Base.MetaMitServerBaseEventArgs.ConnectionAccepted e)
+        private void Server_OnConnectionAcceptedEvent(object sender, Base.ServerBaseEventArgs.ConnectionAccepted e)
         {
             lock (Clients)
             {
@@ -101,18 +101,18 @@ namespace MetaMit.Server
             }
             Console.WriteLine("Connection accepted, guid: " + e.connection.guid);
         }
-        private void Server_OnConnectionEndedEvent(object sender, Base.MetaMitServerBaseEventArgs.ConnectionEnded e)
+        private void Server_OnConnectionEndedEvent(object sender, Base.ServerBaseEventArgs.ConnectionEnded e)
         {
             Console.WriteLine("Connection ended, guid: " + e.client);
         }
-        private void Server_OnConnectionLostEvent(object sender, Base.MetaMitServerBaseEventArgs.ConnectionLost e)
+        private void Server_OnConnectionLostEvent(object sender, Base.ServerBaseEventArgs.ConnectionLost e)
         {
             Console.WriteLine("Connection lost, guid: " + e.client);
         }
 
 
 
-        private void Server_OnDataReceivedEvent(object sender, Base.MetaMitServerBaseEventArgs.DataReceived e)
+        private void Server_OnDataReceivedEvent(object sender, Base.ServerBaseEventArgs.DataReceived e)
         {
             Console.WriteLine("Data received, data: " + e.data);
         }

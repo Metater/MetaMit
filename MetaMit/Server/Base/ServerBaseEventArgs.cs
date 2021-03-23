@@ -6,7 +6,7 @@ using System.Net.Sockets;
 
 namespace MetaMit.Server.Base
 {
-    public class MetaMitServerBaseEventArgs
+    public class ServerBaseEventArgs
     {
         public class ConnectionPending : EventArgs
         {
