@@ -30,7 +30,7 @@ namespace MetaMitStandard
         public MetaMitServer(int port, int backlog)
         {
             this.backlog = backlog;
-            ep = Utils.NetUtils.GetEndPoint(Utils.NetUtils.GetLocalIPv4(), port);
+            ep = Utils.NetworkUtils.GetEndPoint(Utils.NetworkUtils.GetLocalIPv4(), port);
             listener = new Socket(AddressFamily.InterNetworkV6, SocketType.Stream, ProtocolType.Tcp);
             listener.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IPv6Only, false);
         }
@@ -68,7 +68,7 @@ namespace MetaMitStandard
             }
             catch (Exception e)
             {
-                serverStopped.reason = ServerStoppedReason.Crashed;
+                serverStopped.reason = ServerStoppedReason.Exception;
                 serverStopped.message = e.ToString();
             }
             ServerStopped?.Invoke(this, serverStopped);

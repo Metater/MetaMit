@@ -25,6 +25,6 @@ namespace MetaMitStandard.Server
     public enum ServerStoppedReason
     {
         Commanded,
-        Crashed
+        Exception
     }
 }

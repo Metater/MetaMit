@@ -34,11 +34,18 @@ namespace MetaMitStandard
             try
             {
                 socket.EndConnect(ar);
+                socket.BeginReceive(buffer, 0, BufferSize, SocketFlags.None, new AsyncCallback(ReceiveCallback), null);
+                Connected?.Invoke(this, new ConnectedEventArgs());
             }
             catch (SocketException e)
             {
                 Disconnected?.Invoke(this, new DisconnectedEventArgs(DisconnectedReason.SocketException, e.ToString()));
             }
+        }
+
+        private void ReceiveCallback(IAsyncResult ar)
+        {
+
         }
     }
 }

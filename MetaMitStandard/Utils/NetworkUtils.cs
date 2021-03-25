@@ -6,7 +6,7 @@ using System.Net.Sockets;
 
 namespace MetaMitStandard.Utils
 {
-    public static class NetUtils
+    public static class NetworkUtils
     {
         public static IPAddress GetIP()
         {
