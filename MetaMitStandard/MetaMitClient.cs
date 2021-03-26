@@ -39,7 +39,7 @@ namespace MetaMitStandard
             }
             catch (SocketException e)
             {
-                Disconnected?.Invoke(this, new DisconnectedEventArgs(DisconnectedReason.SocketException, e.ToString()));
+                Disconnected?.Invoke(this, new DisconnectedEventArgs(DisconnectedReason.Exception, e.ToString()));
             }
         }
 

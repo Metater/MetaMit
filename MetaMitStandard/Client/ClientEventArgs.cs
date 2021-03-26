@@ -22,10 +22,15 @@ namespace MetaMitStandard.Client
     public class DataReceivedEventArgs : EventArgs
     {
         public byte[] data;
+
+        public DataReceivedEventArgs(byte[] data)
+        {
+            this.data = data;
+        }
     }
     public enum DisconnectedReason
     {
         Commanded,
-        SocketException
+        Exception
     }
 }

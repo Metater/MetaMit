@@ -14,18 +14,19 @@ namespace MetaMitStandard
     {
         private IPEndPoint ep;
         private int backlog;
-
         private Socket listener;
         private Thread listeningThread;
         private static ManualResetEvent listenerDoneCycle = new ManualResetEvent(false);
         private CancellationTokenSource listenerCts = new CancellationTokenSource();
 
+        private List<ClientConnection> connections = new List<ClientConnection>();
+        private ConcurrentQueue<ServerEvent> eventQueue = new ConcurrentQueue<ServerEvent>();
+
         public event EventHandler<ClientConnectedEventArgs> ClientConnected;
         public event EventHandler<ClientDisconnectedEventArgs> ClientDisconnected;
         public event EventHandler<DataReceivedEventArgs> DataReceived;
+        public event EventHandler<ServerStartedEventArgs> ServerStarted;
         public event EventHandler<ServerStoppedEventArgs> ServerStopped;
-
-        private List<ClientConnection> connections = new List<ClientConnection>();
 
         public MetaMitServer(int port, int backlog)
         {
@@ -46,9 +47,34 @@ namespace MetaMitStandard
             listeningThread.Start();
         }
 
+        public void Stop()
+        {
+            listenerCts.Cancel();
+            listener.Close();
+        }
+
+        public void PollEvents()
+        {
+            int queuedEventsCount = eventQueue.Count;
+            for (int i = 0; i < queuedEventsCount; i++)
+            {
+                if (eventQueue.TryDequeue(out ServerEvent serverEvent))
+                    ProcessQueuedEvent(serverEvent);
+                else
+                    break;
+            }
+        }
+
+        public void Dispose()
+        {
+            listener.Dispose();
+            listenerDoneCycle.Dispose();
+            listenerCts.Dispose();
+        }
+
         private void Listen()
         {
-            ServerStoppedEventArgs serverStopped = new ServerStoppedEventArgs();
+            ServerStoppedEventArgs serverStopped;
             try
             {
                 listener.Bind(ep);
@@ -63,36 +89,47 @@ namespace MetaMitStandard
             }
             catch (OperationCanceledException)
             {
-                serverStopped.reason = ServerStoppedReason.Commanded;
-                serverStopped.message = "The server has stopped listening";
+                serverStopped = new ServerStoppedEventArgs(ServerStoppedReason.Commanded, "The server has stopped listening");
             }
             catch (Exception e)
             {
-                serverStopped.reason = ServerStoppedReason.Exception;
-                serverStopped.message = e.ToString();
+                serverStopped = new ServerStoppedEventArgs(ServerStoppedReason.Exception, e.ToString());
             }
-            ServerStopped?.Invoke(this, serverStopped);
+            QueueEvent(serverStopped);
         }
 
-        public void Stop()
+        private void QueueEvent(ServerEventArgs serverEventArgs)
         {
-            listenerCts.Cancel();
-            listener.Close();
+            eventQueue.Enqueue(new ServerEvent(serverEventArgs));
+        }
+
+        private void ProcessQueuedEvent(ServerEvent serverEvent)
+        {
+            switch (serverEvent.serverEventArgs.eventType)
+            {
+                case ServerEventType.ClientConnected:
+                    ClientConnected?.Invoke(this, (ClientConnectedEventArgs)serverEvent.serverEventArgs);
+                    break;
+                case ServerEventType.ClientDisconnected:
+                    ClientDisconnected?.Invoke(this, (ClientDisconnectedEventArgs)serverEvent.serverEventArgs);
+                    break;
+                case ServerEventType.DataReceived:
+                    DataReceived?.Invoke(this, (DataReceivedEventArgs)serverEvent.serverEventArgs);
+                    break;
+                case ServerEventType.ServerStarted:
+                    ServerStarted?.Invoke(this, (ServerStartedEventArgs)serverEvent.serverEventArgs);
+                    break;
+                case ServerEventType.ServerStopped:
+                    ServerStopped?.Invoke(this, (ServerStoppedEventArgs)serverEvent.serverEventArgs);
+                    break;
+            }
         }
 
         private void AcceptCallback(IAsyncResult ar)
         {
-            listenerDoneCycle.Set();
             if (listenerCts.Token.IsCancellationRequested) return;
 
             Socket client = listener.EndAccept(ar);
-        }
-
-        public void Dispose()
-        {
-            listener.Dispose();
-            listenerDoneCycle.Dispose();
-            listenerCts.Dispose();
         }
     }
 }

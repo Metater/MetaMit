@@ -6,5 +6,11 @@ namespace MetaMitStandard.Server
 {
     public class ServerEvent
     {
+        public ServerEventArgs serverEventArgs;
+
+        public ServerEvent(ServerEventArgs serverEventArgs)
+        {
+            this.serverEventArgs = serverEventArgs;
+        }
     }
 }
