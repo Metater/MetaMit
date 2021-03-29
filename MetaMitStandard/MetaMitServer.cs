@@ -15,9 +15,7 @@ namespace MetaMitStandard
         private IPEndPoint ep;
         private int backlog;
         private Socket listener;
-        private Thread listeningThread;
-        private static ManualResetEvent listenerDoneCycle = new ManualResetEvent(false);
-        private CancellationTokenSource listenerCts = new CancellationTokenSource();
+        private bool serverClosed = true;
 
         private List<ClientConnection> connections = new List<ClientConnection>();
         private ConcurrentQueue<ServerEvent> eventQueue = new ConcurrentQueue<ServerEvent>();
@@ -38,18 +36,22 @@ namespace MetaMitStandard
 
         public void Start()
         {
-            //Action listener = new Action(Listen);
-            //listeningTask = Task.Run(listener);
-            Thread listeningThread = new Thread(new ThreadStart(() =>
+            try
             {
-                Listen();
-            }));
-            listeningThread.Start();
+                listener.Bind(ep);
+                listener.Listen(backlog);
+                serverClosed = false;
+                listener.BeginAccept(new AsyncCallback(AcceptCallback), listener);
+            }
+            catch (Exception e)
+            {
+                QueueEvent(new ServerStoppedEventArgs(ServerStoppedReason.Exception, e.ToString()));
+            }
         }
 
         public void Stop()
         {
-            listenerCts.Cancel();
+            serverClosed = true;
             listener.Close();
         }
 
@@ -68,36 +70,9 @@ namespace MetaMitStandard
         public void Dispose()
         {
             listener.Dispose();
-            listenerDoneCycle.Dispose();
-            listenerCts.Dispose();
         }
 
-        private void Listen()
-        {
-            ServerStoppedEventArgs serverStopped;
-            try
-            {
-                listener.Bind(ep);
-                listener.Listen(backlog);
-                while (true)
-                {
-                    listenerDoneCycle.Reset();
-                    listener.BeginAccept(new AsyncCallback(AcceptCallback), listener);
-                    listenerDoneCycle.WaitOne();
-                    listenerCts.Token.ThrowIfCancellationRequested();
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                serverStopped = new ServerStoppedEventArgs(ServerStoppedReason.Commanded, "The server has stopped listening");
-            }
-            catch (Exception e)
-            {
-                serverStopped = new ServerStoppedEventArgs(ServerStoppedReason.Exception, e.ToString());
-            }
-            QueueEvent(serverStopped);
-        }
-
+        #region Events
         private void QueueEvent(ServerEventArgs serverEventArgs)
         {
             eventQueue.Enqueue(new ServerEvent(serverEventArgs));
@@ -124,14 +99,73 @@ namespace MetaMitStandard
                     break;
             }
         }
+        #endregion Events
 
+
+        #region Callbacks
         private void AcceptCallback(IAsyncResult ar)
         {
-            if (listenerCts.Token.IsCancellationRequested) return;
+            ClientConnection clientConnection = new ClientConnection();
+            try
+            {
+                Socket listenerAr = (Socket)ar.AsyncState;
+                clientConnection.socket = listenerAr.EndAccept(ar);
+                lock (connections)
+                {
+                    connections.Add(clientConnection);
+                }
+                clientConnection.socket.BeginReceive(clientConnection.buffer, 0, clientConnection.buffer.Length, SocketFlags.None, new AsyncCallback(ReceiveCallback), clientConnection);
+                listener.BeginAccept(new AsyncCallback(AcceptCallback), listener);
+            }
+            catch (SocketException e)
+            {
+                ForceDisconnectClient(clientConnection);
+                listener.BeginAccept(new AsyncCallback(AcceptCallback), listener);
+            }
+            catch (Exception e)
+            {
+                ForceDisconnectClient(clientConnection);
+                listener.BeginAccept(new AsyncCallback(AcceptCallback), listener);
+            }
+        }
+        private void ReceiveCallback(IAsyncResult ar)
+        {
+            ClientConnection clientConnection = (ClientConnection)ar.AsyncState;
+            try
+            {
+                int bytesRead = clientConnection.socket.EndReceive(ar);
+                if (bytesRead > 0)
+                {
+                    if (clientConnection.dataBuilder.TryBuildData(clientConnection.buffer, out byte[] data))
+                    {
+                        QueueEvent(new DataReceivedEventArgs(clientConnection.client, data));
+                    }
+                    clientConnection.socket.BeginReceive(clientConnection.buffer, 0, clientConnection.buffer.Length, SocketFlags.None, new AsyncCallback(ReceiveCallback), clientConnection);
+                }
+                else
+                {
+                    ForceDisconnectClient(clientConnection);
+                }
+            }
+            catch (SocketException e)
+            {
+                ForceDisconnectClient(clientConnection);
+            }
+        }
+        #endregion Callbacks
 
-            Socket client = listener.EndAccept(ar);
+        private void ForceDisconnectClient(ClientConnection clientConnection)
+        {
+            if (clientConnection != null)
+            {
+                clientConnection.socket.Close();
+                lock (connections)
+                {
+                    connections.Remove(clientConnection);
+                }
+            }
         }
 
-        private void
+
     }
 }
