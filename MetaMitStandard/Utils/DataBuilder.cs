@@ -8,14 +8,41 @@ namespace MetaMitStandard.Utils
 {
     public class DataBuilder
     {
-        protected List<byte[]> dataSegments = new List<byte[]>();
+        private List<byte[]> dataSegments = new List<byte[]>();
+        private ushort dataLength = 0;
+        private int bytesRead = 0;
 
-        public void AddData(byte[] data)
+        public bool TryBuildData(byte[] data, out byte[] builtData)
         {
-            dataSegments.Add(data);
+            if (bytesRead == 0)
+            {
+                dataLength = BitConverter.ToUInt16(data, 0);
+            }
+
+            bytesRead += data.Length;
+
+            bool allDataRead = bytesRead >= dataLength;
+
+            if (allDataRead)
+            {
+                byte[] trimmedData = new byte[bytesRead - dataLength];
+                Buffer.BlockCopy(data, 0, trimmedData, 0, bytesRead - dataLength);
+                dataSegments.Add(trimmedData);
+            }
+            else
+            {
+                dataSegments.Add(data);
+            }
+
+            if (allDataRead)
+                builtData = GetData();
+            else
+                builtData = default(byte[]);
+
+            return allDataRead;
         }
 
-        public byte[] GetData()
+        private byte[] GetData()
         {
             byte[][] arrays = dataSegments.ToArray();
             byte[] rv = new byte[arrays.Sum(a => a.Length)];
@@ -25,7 +52,15 @@ namespace MetaMitStandard.Utils
                 Buffer.BlockCopy(array, 0, rv, offset, array.Length);
                 offset += array.Length;
             }
+            Reset();
             return rv;
+        }
+
+        private void Reset()
+        {
+            dataSegments.Clear();
+            bytesRead = 0;
+            dataLength = 0;
         }
     }
 }
