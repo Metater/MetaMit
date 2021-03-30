@@ -30,7 +30,7 @@ namespace MetaMitStandard.Client
     }
     public enum DisconnectedReason
     {
-        Commanded,
+        Requested,
         Exception
     }
 }

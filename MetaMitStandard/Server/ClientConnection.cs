@@ -19,13 +19,13 @@ namespace MetaMitStandard.Server
 
         public DataBuilder dataBuilder;
 
-        public Guid client;
+        public Guid guid;
 
         public ClientConnection()
         {
             buffer = new byte[BufferSize];
             dataBuilder = new DataBuilder();
-            client = Guid.NewGuid();
+            guid = Guid.NewGuid();
         }
     }
 }

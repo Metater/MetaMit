@@ -28,16 +28,13 @@ namespace MetaMitStandard.Utils
                 byte[] trimmedData = new byte[bytesRead - dataLength];
                 Buffer.BlockCopy(data, 0, trimmedData, 0, bytesRead - dataLength);
                 dataSegments.Add(trimmedData);
+                builtData = GetData();
             }
             else
             {
                 dataSegments.Add(data);
+                builtData = null;
             }
-
-            if (allDataRead)
-                builtData = GetData();
-            else
-                builtData = default(byte[]);
 
             return allDataRead;
         }

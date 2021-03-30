@@ -21,7 +21,7 @@ namespace MetaMitStandard
         private ConcurrentQueue<ServerEvent> eventQueue = new ConcurrentQueue<ServerEvent>();
 
         public event EventHandler<ClientConnectedEventArgs> ClientConnected;
-        public event EventHandler<ClientDisconnectedEventArgs> ClientDisconnected;
+        public event EventHandler<ClientDisconnectedEventArgs> ClientDisconnected; // Currently, the client disconnected event could go off multiple times per disconnect
         public event EventHandler<DataReceivedEventArgs> DataReceived;
         public event EventHandler<ServerStartedEventArgs> ServerStarted;
         public event EventHandler<ServerStoppedEventArgs> ServerStopped;
@@ -53,6 +53,30 @@ namespace MetaMitStandard
         {
             serverClosed = true;
             listener.Close();
+        }
+
+        public void Send(ClientConnection clientConnection, byte[] data)
+        {
+            clientConnection.socket.BeginSend(data, 0, data.Length, SocketFlags.None, new AsyncCallback(SendCallback), clientConnection);
+        }
+        public void Send(Guid guid, byte[] data) // May want to keep a map of guids to client connections somewhere, this locks connections
+        {
+            if (TryGetClientConnection(guid, out ClientConnection clientConnection))
+            {
+                Send(clientConnection, data);
+            }
+        }
+
+        public void Disconnect(ClientConnection clientConnection)
+        {
+            clientConnection.socket.BeginDisconnect(false, new AsyncCallback(DisconnectCallback), clientConnection);
+        }
+        public void Disconnect(Guid guid)
+        {
+            if (TryGetClientConnection(guid, out ClientConnection clientConnection))
+            {
+                Disconnect(clientConnection);
+            }
         }
 
         public void PollEvents()
@@ -105,28 +129,31 @@ namespace MetaMitStandard
         #region Callbacks
         private void AcceptCallback(IAsyncResult ar)
         {
+            if (serverClosed)
+            {
+                QueueEvent(new ServerStoppedEventArgs(ServerStoppedReason.Requested, "The server has been stopped"));
+                return;
+            }
+
             ClientConnection clientConnection = new ClientConnection();
             try
             {
-                Socket listenerAr = (Socket)ar.AsyncState;
-                clientConnection.socket = listenerAr.EndAccept(ar);
+                clientConnection.socket = listener.EndAccept(ar);
                 lock (connections)
                 {
                     connections.Add(clientConnection);
                 }
                 clientConnection.socket.BeginReceive(clientConnection.buffer, 0, clientConnection.buffer.Length, SocketFlags.None, new AsyncCallback(ReceiveCallback), clientConnection);
-                listener.BeginAccept(new AsyncCallback(AcceptCallback), listener);
             }
             catch (SocketException e)
             {
-                ForceDisconnectClient(clientConnection);
-                listener.BeginAccept(new AsyncCallback(AcceptCallback), listener);
+                ForceDisconnectClient(clientConnection, ClientDisconnectedReason.ExceptionOnAccept, e.ToString());
             }
             catch (Exception e)
             {
-                ForceDisconnectClient(clientConnection);
-                listener.BeginAccept(new AsyncCallback(AcceptCallback), listener);
+                ForceDisconnectClient(clientConnection, ClientDisconnectedReason.ExceptionOnAccept, e.ToString());
             }
+            listener.BeginAccept(new AsyncCallback(AcceptCallback), null);
         }
         private void ReceiveCallback(IAsyncResult ar)
         {
@@ -138,23 +165,48 @@ namespace MetaMitStandard
                 {
                     if (clientConnection.dataBuilder.TryBuildData(clientConnection.buffer, out byte[] data))
                     {
-                        QueueEvent(new DataReceivedEventArgs(clientConnection.client, data));
+                        QueueEvent(new DataReceivedEventArgs(clientConnection.guid, data));
                     }
                     clientConnection.socket.BeginReceive(clientConnection.buffer, 0, clientConnection.buffer.Length, SocketFlags.None, new AsyncCallback(ReceiveCallback), clientConnection);
                 }
                 else
                 {
-                    ForceDisconnectClient(clientConnection);
+                    ForceDisconnectClient(clientConnection, ClientDisconnectedReason.ExceptionOnReceive, "Bytes read was less than or equal to 0");
                 }
             }
             catch (SocketException e)
             {
-                ForceDisconnectClient(clientConnection);
+                ForceDisconnectClient(clientConnection, ClientDisconnectedReason.ExceptionOnReceive, e.ToString());
+            }
+        }
+        private void SendCallback(IAsyncResult ar)
+        {
+            ClientConnection clientConnection = (ClientConnection)ar.AsyncState;
+            try
+            {
+                clientConnection.socket.EndSend(ar);
+            }
+            catch (SocketException e)
+            {
+                ForceDisconnectClient(clientConnection, ClientDisconnectedReason.ExceptionOnSend, e.ToString());
+            }
+        }
+        private void DisconnectCallback(IAsyncResult ar)
+        {
+            ClientConnection clientConnection = (ClientConnection)ar.AsyncState;
+            try
+            {
+                clientConnection.socket.EndDisconnect(ar);
+                QueueEvent(new ClientDisconnectedEventArgs(clientConnection.guid, ClientDisconnectedReason.Requested, "A client properly disconnected"));
+            }
+            catch (SocketException e)
+            {
+                QueueEvent(new ClientDisconnectedEventArgs(clientConnection.guid, ClientDisconnectedReason.ExceptionOnDisconnect, e.ToString()));
             }
         }
         #endregion Callbacks
 
-        private void ForceDisconnectClient(ClientConnection clientConnection)
+        private void ForceDisconnectClient(ClientConnection clientConnection, ClientDisconnectedReason reason, string message)
         {
             if (clientConnection != null)
             {
@@ -164,6 +216,24 @@ namespace MetaMitStandard
                     connections.Remove(clientConnection);
                 }
             }
+            QueueEvent(new ClientDisconnectedEventArgs(clientConnection.guid, reason, message));
+        }
+
+        private bool TryGetClientConnection(Guid guid, out ClientConnection clientConnection)
+        {
+            lock (connections)
+            {
+                foreach(ClientConnection client in connections)
+                {
+                    if (client.guid.Equals(guid))
+                    {
+                        clientConnection = client;
+                        return true;
+                    }
+                }
+            }
+            clientConnection = null;
+            return false;
         }
 
 

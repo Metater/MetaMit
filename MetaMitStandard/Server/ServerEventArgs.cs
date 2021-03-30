@@ -18,33 +18,37 @@ namespace MetaMitStandard.Server
     }
     public class ClientConnectedEventArgs : ServerEventArgs
     {
-        public Guid client;
+        public Guid guid;
 
-        public ClientConnectedEventArgs(Guid client)
+        public ClientConnectedEventArgs(Guid guid)
         {
             eventType = ServerEventType.ClientConnected;
-            this.client = client;
+            this.guid = guid;
         }
     }
     public class ClientDisconnectedEventArgs : ServerEventArgs
     {
-        public Guid client;
+        public Guid guid;
+        public ClientDisconnectedReason reason;
+        public string message;
 
-        public ClientDisconnectedEventArgs(Guid client)
+        public ClientDisconnectedEventArgs(Guid guid, ClientDisconnectedReason reason, string message)
         {
             eventType = ServerEventType.ClientDisconnected;
-            this.client = client;
+            this.guid = guid;
+            this.reason = reason;
+            this.message = message;
         }
     }
     public class DataReceivedEventArgs : ServerEventArgs
     {
-        public Guid client;
+        public Guid guid;
         public byte[] data;
 
-        public DataReceivedEventArgs(Guid client, byte[] data)
+        public DataReceivedEventArgs(Guid guid, byte[] data)
         {
             eventType = ServerEventType.DataReceived;
-            this.client = client;
+            this.guid = guid;
             this.data = data;
         }
     }
@@ -67,9 +71,17 @@ namespace MetaMitStandard.Server
             this.message = message;
         }
     }
+    public enum ClientDisconnectedReason
+    {
+        Requested,
+        ExceptionOnAccept,
+        ExceptionOnReceive,
+        ExceptionOnSend,
+        ExceptionOnDisconnect
+    }
     public enum ServerStoppedReason
     {
-        Commanded,
+        Requested,
         Exception
     }
 }
