@@ -6,10 +6,11 @@ using System.Linq;
 
 namespace MetaMitStandard.Utils
 {
-    public class DataBuilder
+    public class DataParser
     {
         private List<byte[]> dataSegments = new List<byte[]>();
         private ushort dataLength = 0;
+        private ushort sessionFlags = 0;
         private int bytesRead = 0;
 
         public bool TryBuildData(byte[] data, out byte[] builtData)
@@ -17,6 +18,7 @@ namespace MetaMitStandard.Utils
             if (bytesRead == 0)
             {
                 dataLength = BitConverter.ToUInt16(data, 0);
+                sessionFlags = BitConverter.ToUInt16(data, 2);
             }
 
             bytesRead += data.Length;
@@ -39,6 +41,28 @@ namespace MetaMitStandard.Utils
             return allDataRead;
         }
 
+        public bool GetSessionFlag(SessionFlag sessionFlag)
+        {
+            return GetBit(sessionFlags, (int)sessionFlag);
+        }
+
+        public static byte[] CombineArrays(byte[][] arrays)
+        {
+            byte[] rv = new byte[arrays.Sum(a => a.Length)];
+            int offset = 0;
+            foreach (byte[] array in arrays)
+            {
+                Buffer.BlockCopy(array, 0, rv, offset, array.Length);
+                offset += array.Length;
+            }
+            return rv;
+        }
+
+        private bool GetBit(ushort sessionFlags, int index)
+        {
+            return ((sessionFlags >> index) & 1) != 0;
+        }
+
         private byte[] GetData()
         {
             byte[][] arrays = dataSegments.ToArray();
@@ -50,7 +74,7 @@ namespace MetaMitStandard.Utils
                 offset += array.Length;
             }
             Reset();
-            return rv;
+            return rv.Skip(4).ToArray();
         }
 
         private void Reset()
@@ -59,5 +83,11 @@ namespace MetaMitStandard.Utils
             bytesRead = 0;
             dataLength = 0;
         }
+    }
+
+    public enum SessionFlag
+    {
+        RequestDisconnect,
+        OkayDisconnect
     }
 }

@@ -7,12 +7,13 @@ using System.Net.Sockets;
 using System.Net;
 using System.Threading;
 using MetaMitStandard.Server;
+using MetaMitStandard.Utils;
 
 namespace MetaMitStandard
 {
     public sealed class MetaMitServer : IDisposable
     {
-        private IPEndPoint ep;
+        public IPEndPoint ep;
         private int backlog;
         private Socket listener;
         private bool serverClosed = true;
@@ -57,7 +58,13 @@ namespace MetaMitStandard
 
         public void Send(ClientConnection clientConnection, byte[] data)
         {
-            clientConnection.socket.BeginSend(data, 0, data.Length, SocketFlags.None, new AsyncCallback(SendCallback), clientConnection);
+            byte[] length = BitConverter.GetBytes((ushort)data.Length);
+            byte[] sessionFlags = BitConverter.GetBytes((ushort)0);
+            byte[] rv = new byte[length.Length + sessionFlags.Length + data.Length];
+            Buffer.BlockCopy(length, 0, rv, 0, length.Length);
+            Buffer.BlockCopy(sessionFlags, 0, rv, length.Length, sessionFlags.Length);
+            System.Buffer.BlockCopy(data, 0, rv, length.Length + sessionFlags.Length, data.Length);
+            clientConnection.socket.BeginSend(rv, 0, rv.Length, SocketFlags.None, new AsyncCallback(SendCallback), clientConnection);
         }
         public void Send(Guid guid, byte[] data) // May want to keep a map of guids to client connections somewhere, this locks connections
         {
@@ -134,7 +141,6 @@ namespace MetaMitStandard
                 QueueEvent(new ServerStoppedEventArgs(ServerStoppedReason.Requested, "The server has been stopped"));
                 return;
             }
-
             ClientConnection clientConnection = new ClientConnection();
             try
             {
@@ -143,6 +149,7 @@ namespace MetaMitStandard
                 {
                     connections.Add(clientConnection);
                 }
+                QueueEvent(new ClientConnectedEventArgs(clientConnection.guid));
                 clientConnection.socket.BeginReceive(clientConnection.buffer, 0, clientConnection.buffer.Length, SocketFlags.None, new AsyncCallback(ReceiveCallback), clientConnection);
             }
             catch (SocketException e)
@@ -160,10 +167,10 @@ namespace MetaMitStandard
             ClientConnection clientConnection = (ClientConnection)ar.AsyncState;
             try
             {
-                int bytesRead = clientConnection.socket.EndReceive(ar);
-                if (bytesRead > 0)
+                int bytesReceived = clientConnection.socket.EndReceive(ar);
+                if (bytesReceived > 0)
                 {
-                    if (clientConnection.dataBuilder.TryBuildData(clientConnection.buffer, out byte[] data))
+                    if (clientConnection.dataParser.TryBuildData(clientConnection.buffer, out byte[] data))
                     {
                         QueueEvent(new DataReceivedEventArgs(clientConnection.guid, data));
                     }
@@ -179,7 +186,7 @@ namespace MetaMitStandard
                 ForceDisconnectClient(clientConnection, ClientDisconnectedReason.ExceptionOnReceive, e.ToString());
             }
         }
-        private void SendCallback(IAsyncResult ar)
+        private void SendCallback(IAsyncResult ar) // Add events here later
         {
             ClientConnection clientConnection = (ClientConnection)ar.AsyncState;
             try

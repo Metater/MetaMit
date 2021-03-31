@@ -12,20 +12,18 @@ namespace MetaMitStandard.Server
     public class ClientConnection
     {
         public Socket socket;
-        public byte[] buffer;
+        public byte[] buffer = new byte[BufferSize];
 
         public long bytesReceived = 0;
         public const int BufferSize = 4096;
 
-        public DataBuilder dataBuilder;
+        public DataParser dataParser = new DataParser();
 
-        public Guid guid;
+        public Guid guid = Guid.NewGuid();
 
         public ClientConnection()
         {
-            buffer = new byte[BufferSize];
-            dataBuilder = new DataBuilder();
-            guid = Guid.NewGuid();
+
         }
     }
 }
