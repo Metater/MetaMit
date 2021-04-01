@@ -99,9 +99,8 @@ namespace MetaMitStandard
                 int bytesReceived = serverConnection.socket.EndReceive(ar);
                 if (bytesReceived > 0)
                 {
-                    Console.WriteLine("DATA");
                     serverConnection.bytesReceived += bytesReceived;
-                    if (serverConnection.dataParser.TryBuildData(serverConnection.buffer, out byte[] builtData))
+                    if (serverConnection.dataParser.TryBuildData(bytesReceived, serverConnection.buffer, out byte[] builtData))
                     {
                         QueueEvent(new DataReceivedEventArgs(builtData));
                     }

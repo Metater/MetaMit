@@ -15,6 +15,7 @@ namespace MetaMitStandard.Server
         public byte[] buffer = new byte[BufferSize];
 
         public long bytesReceived = 0;
+        public long bytesSent = 0;
         public const int BufferSize = 4096;
 
         public DataParser dataParser = new DataParser();

@@ -170,7 +170,8 @@ namespace MetaMitStandard
                 int bytesReceived = clientConnection.socket.EndReceive(ar);
                 if (bytesReceived > 0)
                 {
-                    if (clientConnection.dataParser.TryBuildData(clientConnection.buffer, out byte[] data))
+                    clientConnection.bytesReceived += bytesReceived;
+                    if (clientConnection.dataParser.TryBuildData(bytesReceived, clientConnection.buffer, out byte[] data))
                     {
                         QueueEvent(new DataReceivedEventArgs(clientConnection.guid, data));
                     }
@@ -191,7 +192,8 @@ namespace MetaMitStandard
             ClientConnection clientConnection = (ClientConnection)ar.AsyncState;
             try
             {
-                clientConnection.socket.EndSend(ar);
+                int bytesSent = clientConnection.socket.EndSend(ar);
+                clientConnection.bytesSent += bytesSent;
             }
             catch (SocketException e)
             {

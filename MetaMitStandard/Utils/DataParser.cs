@@ -13,7 +13,7 @@ namespace MetaMitStandard.Utils
         private ushort sessionFlags = 0;
         private int bytesRead = 0;
 
-        public bool TryBuildData(byte[] data, out byte[] builtData)
+        public bool TryBuildData(int receivedDataLength, byte[] data, out byte[] builtData)
         {
             if (bytesRead == 0)
             {
@@ -21,16 +21,19 @@ namespace MetaMitStandard.Utils
                 sessionFlags = BitConverter.ToUInt16(data, 2);
             }
 
-            bytesRead += data.Length;
+            bytesRead += receivedDataLength;
 
             bool allDataRead = bytesRead >= dataLength;
 
             if (allDataRead)
             {
-                byte[] trimmedData = new byte[bytesRead - dataLength];
+                byte[] trimmedData = new byte[receivedDataLength-4];
+                Console.WriteLine("Trimming" + trimmedData.Length);
                 Buffer.BlockCopy(data, 0, trimmedData, 0, bytesRead - dataLength);
                 dataSegments.Add(trimmedData);
+                Console.WriteLine("Trimmed Data: " + trimmedData.Length);
                 builtData = GetData();
+                Console.WriteLine("Data Length: " + builtData.Length);
             }
             else
             {
