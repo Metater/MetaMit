@@ -16,7 +16,7 @@ namespace MetaMitStandard.Client
         public long bytesSent = 0;
         public const int BufferSize = 4096;
 
-        public DataParser dataParser = new DataParser();
+        public DataUnpacker dataParser = new DataUnpacker();
 
         public ServerConnection()
         {

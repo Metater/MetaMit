@@ -6,34 +6,53 @@ using System.Linq;
 
 namespace MetaMitStandard.Utils
 {
-    public class DataParser
+    public class DataUnpacker
     {
         private List<byte[]> dataSegments = new List<byte[]>();
         private ushort dataLength = 0;
         private ushort sessionFlags = 0;
         private int bytesRead = 0;
+        private const int OverheadBytes = 4;
 
-        public bool TryBuildData(int receivedDataLength, byte[] data, out byte[] builtData)
+        public event Action<ushort> SessionFlagsFound;
+
+        public bool TryParseData(int bytesReceived, byte[] data, out byte[] builtData)
         {
             if (bytesRead == 0)
             {
                 dataLength = BitConverter.ToUInt16(data, 0);
                 sessionFlags = BitConverter.ToUInt16(data, 2);
+                if (sessionFlags > 0)
+                {
+                    SessionFlagsFound?.Invoke(sessionFlags);
+                }
             }
 
-            bytesRead += receivedDataLength;
+            bytesRead += data.Length;
 
             bool allDataRead = bytesRead >= dataLength;
 
             if (allDataRead)
             {
-                byte[] trimmedData = new byte[receivedDataLength-4];
-                Console.WriteLine("Trimming" + trimmedData.Length);
-                Buffer.BlockCopy(data, 0, trimmedData, 0, bytesRead - dataLength);
-                dataSegments.Add(trimmedData);
-                Console.WriteLine("Trimmed Data: " + trimmedData.Length);
+                bool needsToBeTrimmed = data.Length * (dataSegments.Count + 1) != dataLength;
+                if (needsToBeTrimmed)
+                {
+                    int overheadOffset = 0;
+                    if (bytesRead == data.Length) overheadOffset = OverheadBytes;
+                    int howMuchDataRemains = (dataLength - (data.Length * dataSegments.Count)) + overheadOffset;
+                    byte[] trimmedData = new byte[howMuchDataRemains];
+                    Buffer.BlockCopy(data, 0, trimmedData, 0, howMuchDataRemains);
+                    dataSegments.Add(trimmedData);
+                    foreach (byte b in trimmedData)
+                    {
+                        Console.WriteLine(b);
+                    }
+                }
+                else
+                {
+                    dataSegments.Add(data);
+                }
                 builtData = GetData();
-                Console.WriteLine("Data Length: " + builtData.Length);
             }
             else
             {
@@ -49,18 +68,6 @@ namespace MetaMitStandard.Utils
             return GetBit(sessionFlags, (int)sessionFlag);
         }
 
-        public static byte[] CombineArrays(byte[][] arrays)
-        {
-            byte[] rv = new byte[arrays.Sum(a => a.Length)];
-            int offset = 0;
-            foreach (byte[] array in arrays)
-            {
-                Buffer.BlockCopy(array, 0, rv, offset, array.Length);
-                offset += array.Length;
-            }
-            return rv;
-        }
-
         private bool GetBit(ushort sessionFlags, int index)
         {
             return ((sessionFlags >> index) & 1) != 0;
@@ -69,15 +76,15 @@ namespace MetaMitStandard.Utils
         private byte[] GetData()
         {
             byte[][] arrays = dataSegments.ToArray();
-            byte[] rv = new byte[arrays.Sum(a => a.Length)];
+            byte[] combinedArray = new byte[arrays.Sum(a => a.Length)];
             int offset = 0;
             foreach (byte[] array in arrays)
             {
-                Buffer.BlockCopy(array, 0, rv, offset, array.Length);
+                Buffer.BlockCopy(array, 0, combinedArray, offset, array.Length);
                 offset += array.Length;
             }
             Reset();
-            return rv.Skip(4).ToArray();
+            return combinedArray.Skip(OverheadBytes).ToArray();
         }
 
         private void Reset()

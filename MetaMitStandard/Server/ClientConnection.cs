@@ -9,22 +9,29 @@ using MetaMitStandard.Utils;
 
 namespace MetaMitStandard.Server
 {
-    public class ClientConnection
+    public class ClientConnection : IDisposable
     {
         public Socket socket;
         public byte[] buffer = new byte[BufferSize];
+
+        public bool active = false;
 
         public long bytesReceived = 0;
         public long bytesSent = 0;
         public const int BufferSize = 4096;
 
-        public DataParser dataParser = new DataParser();
+        public DataUnpacker dataParser = new DataUnpacker();
 
         public Guid guid = Guid.NewGuid();
 
         public ClientConnection()
         {
 
+        }
+
+        public void Dispose()
+        {
+            socket.Dispose();
         }
     }
 }

@@ -43,6 +43,7 @@ namespace MetaMitStandard
                 listener.Listen(backlog);
                 serverClosed = false;
                 listener.BeginAccept(new AsyncCallback(AcceptCallback), listener);
+                QueueEvent(new ServerStartedEventArgs());
             }
             catch (Exception e)
             {
@@ -171,7 +172,8 @@ namespace MetaMitStandard
                 if (bytesReceived > 0)
                 {
                     clientConnection.bytesReceived += bytesReceived;
-                    if (clientConnection.dataParser.TryBuildData(bytesReceived, clientConnection.buffer, out byte[] data))
+                    Console.WriteLine("Received: " + bytesReceived);
+                    if (clientConnection.dataParser.TryParseData(bytesReceived, clientConnection.buffer, out byte[] data))
                     {
                         QueueEvent(new DataReceivedEventArgs(clientConnection.guid, data));
                     }

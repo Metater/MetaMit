@@ -100,7 +100,7 @@ namespace MetaMitStandard
                 if (bytesReceived > 0)
                 {
                     serverConnection.bytesReceived += bytesReceived;
-                    if (serverConnection.dataParser.TryBuildData(bytesReceived, serverConnection.buffer, out byte[] builtData))
+                    if (serverConnection.dataParser.TryParseData(bytesReceived, serverConnection.buffer, out byte[] builtData))
                     {
                         QueueEvent(new DataReceivedEventArgs(builtData));
                     }
@@ -118,6 +118,7 @@ namespace MetaMitStandard
             {
                 int bytesSent = serverConnection.socket.EndSend(ar);
                 serverConnection.bytesSent += bytesSent;
+                Console.WriteLine("DASASsadsadaaaaaaaaaaaaaaaaaa");
             }
             catch (Exception e)
             {
