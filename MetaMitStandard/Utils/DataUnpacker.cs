@@ -9,63 +9,38 @@ namespace MetaMitStandard.Utils
     public class DataUnpacker
     {
         private List<byte[]> dataSegments = new List<byte[]>();
-        private ushort dataLength = 0;
-        private ushort sessionFlags = 0;
-        private int bytesRead = 0;
+        private ushort packetLength = 0;
+        private ushort packetSessionFlags = 0;
+        private int packetBytesReceived = 0;
         private const int OverheadBytes = 4;
 
         public event Action<ushort> SessionFlagsFound;
 
         public bool TryParseData(int bytesReceived, byte[] data, out byte[] builtData)
         {
-            if (bytesRead == 0)
+            packetBytesReceived += bytesReceived;
+            if (packetBytesReceived == bytesReceived) // Is first time?
             {
-                dataLength = BitConverter.ToUInt16(data, 0);
-                sessionFlags = BitConverter.ToUInt16(data, 2);
-                if (sessionFlags > 0)
+                packetLength = BitConverter.ToUInt16(data, 0);
+                packetSessionFlags = BitConverter.ToUInt16(data, 2);
+                if (packetSessionFlags > 0) // Any session flags?
                 {
-                    SessionFlagsFound?.Invoke(sessionFlags);
+                    SessionFlagsFound?.Invoke(packetSessionFlags);
+                }
+                if (packetBytesReceived >= packetLength) // Is all data received?
+                {
+                    int bytesToKeep = packetLength + OverheadBytes;
                 }
             }
-
-            bytesRead += data.Length;
-
-            bool allDataRead = bytesRead >= dataLength;
-
-            if (allDataRead)
+            else // Is not first time?
             {
-                bool needsToBeTrimmed = data.Length * (dataSegments.Count + 1) != dataLength;
-                if (needsToBeTrimmed)
-                {
-                    int overheadOffset = 0;
-                    if (bytesRead == data.Length) overheadOffset = OverheadBytes;
-                    int howMuchDataRemains = (dataLength - (data.Length * dataSegments.Count)) + overheadOffset;
-                    byte[] trimmedData = new byte[howMuchDataRemains];
-                    Buffer.BlockCopy(data, 0, trimmedData, 0, howMuchDataRemains);
-                    dataSegments.Add(trimmedData);
-                    foreach (byte b in trimmedData)
-                    {
-                        Console.WriteLine(b);
-                    }
-                }
-                else
-                {
-                    dataSegments.Add(data);
-                }
-                builtData = GetData();
-            }
-            else
-            {
-                dataSegments.Add(data);
-                builtData = null;
-            }
 
-            return allDataRead;
+            }
         }
 
         public bool GetSessionFlag(SessionFlag sessionFlag)
         {
-            return GetBit(sessionFlags, (int)sessionFlag);
+            return GetBit(packetSessionFlags, (int)sessionFlag);
         }
 
         private bool GetBit(ushort sessionFlags, int index)
@@ -90,8 +65,8 @@ namespace MetaMitStandard.Utils
         private void Reset()
         {
             dataSegments.Clear();
-            bytesRead = 0;
-            dataLength = 0;
+            packetBytesReceived = 0;
+            packetLength = 0;
         }
     }
 
