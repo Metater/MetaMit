@@ -75,6 +75,38 @@ namespace MetaMitStandard
             }
         }
 
+        public void Broadcast(byte[] data)
+        {
+            lock (connections)
+            {
+                foreach(ClientConnection connection in connections)
+                {
+                    Send(connection, data);
+                }
+            }
+        }
+        public void BroadcastToBut(ClientConnection skipConnection, byte[] data)
+        {
+            lock (connections)
+            {
+                foreach (ClientConnection connection in connections)
+                    if (connection != skipConnection)
+                        Send(connection, data);
+            }
+        }
+        public void BroadcastToBut(Guid guid, byte[] data)
+        {
+            lock (connections)
+            {
+                if (TryGetClientConnection(guid, out ClientConnection skipConnection))
+                {
+                    foreach (ClientConnection connection in connections)
+                        if (connection != skipConnection)
+                            Send(connection, data);
+                }
+            }
+        }
+
         public void Disconnect(ClientConnection clientConnection)
         {
             clientConnection.socket.BeginDisconnect(false, new AsyncCallback(DisconnectCallback), clientConnection);
@@ -150,7 +182,7 @@ namespace MetaMitStandard
                 {
                     connections.Add(clientConnection);
                 }
-                QueueEvent(new ClientConnectedEventArgs(clientConnection.guid));
+                QueueEvent(new ClientConnectedEventArgs(clientConnection.guid, clientConnection.socket.RemoteEndPoint));
                 clientConnection.socket.BeginReceive(clientConnection.buffer, 0, clientConnection.buffer.Length, SocketFlags.None, new AsyncCallback(ReceiveCallback), clientConnection);
             }
             catch (SocketException e)
@@ -172,12 +204,11 @@ namespace MetaMitStandard
                 if (bytesReceived > 0)
                 {
                     clientConnection.bytesReceived += bytesReceived;
-                    Console.WriteLine("Received: " + bytesReceived);
                     if (clientConnection.dataParser.TryParseData(bytesReceived, clientConnection.buffer, out List<byte[]> builtData))
                     {
                         foreach(byte[] data in builtData)
                         {
-                            QueueEvent(new DataReceivedEventArgs(clientConnection.guid, data));
+                            QueueEvent(new DataReceivedEventArgs(clientConnection, data));
                         }
                     }
                     clientConnection.socket.BeginReceive(clientConnection.buffer, 0, clientConnection.buffer.Length, SocketFlags.None, new AsyncCallback(ReceiveCallback), clientConnection);

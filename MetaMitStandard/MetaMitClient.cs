@@ -107,6 +107,7 @@ namespace MetaMitStandard
                             QueueEvent(new DataReceivedEventArgs(data));
                         }
                     }
+                    serverConnection.socket.BeginReceive(serverConnection.buffer, 0, ServerConnection.BufferSize, SocketFlags.None, new AsyncCallback(ReceiveCallback), null);
                 }
             }
             catch (SocketException e)
@@ -121,7 +122,6 @@ namespace MetaMitStandard
             {
                 int bytesSent = serverConnection.socket.EndSend(ar);
                 serverConnection.bytesSent += bytesSent;
-                Console.WriteLine("DASASsadsadaaaaaaaaaaaaaaaaaa");
             }
             catch (Exception e)
             {

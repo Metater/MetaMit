@@ -88,7 +88,6 @@ namespace MetaMitStandard.Utils
                 {
                     allDataParsed = true;
                 }
-                Console.WriteLine("One parser loop done!");
             }
             return parsedData.Count != 0;
         }

@@ -39,7 +39,7 @@ namespace MetaMitStandard.Client
 
         public DataReceivedEventArgs(byte[] data)
         {
-            eventType = ClientEventType.Disconnected;
+            eventType = ClientEventType.DataReceived;
             this.data = data;
         }
     }

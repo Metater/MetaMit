@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Net;
 
 namespace MetaMitStandard.Server
 {
@@ -19,11 +20,13 @@ namespace MetaMitStandard.Server
     public class ClientConnectedEventArgs : ServerEventArgs
     {
         public Guid guid;
+        public EndPoint ep;
 
-        public ClientConnectedEventArgs(Guid guid)
+        public ClientConnectedEventArgs(Guid guid, EndPoint ep)
         {
             eventType = ServerEventType.ClientConnected;
             this.guid = guid;
+            this.ep = ep;
         }
     }
     public class ClientDisconnectedEventArgs : ServerEventArgs
@@ -42,13 +45,13 @@ namespace MetaMitStandard.Server
     }
     public class DataReceivedEventArgs : ServerEventArgs
     {
-        public Guid guid;
+        public ClientConnection clientConnection;
         public byte[] data;
 
-        public DataReceivedEventArgs(Guid guid, byte[] data)
+        public DataReceivedEventArgs(ClientConnection clientConnection, byte[] data)
         {
             eventType = ServerEventType.DataReceived;
-            this.guid = guid;
+            this.clientConnection = clientConnection;
             this.data = data;
         }
     }
