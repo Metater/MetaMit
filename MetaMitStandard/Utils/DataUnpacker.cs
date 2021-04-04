@@ -8,7 +8,7 @@ namespace MetaMitStandard.Utils
 {
     public class DataUnpacker
     {
-        private List<byte[]> dataSegments = new List<byte[]>();
+        private List<byte[]> packetSegments = new List<byte[]>();
         private ushort packetLength = 0;
         private ushort packetSessionFlags = 0;
         private int packetBytesReceived = 0;
@@ -16,7 +16,7 @@ namespace MetaMitStandard.Utils
 
         public event Action<ushort> SessionFlagsFound;
 
-        public bool TryParseData(int bytesReceived, byte[] data, out byte[] builtData)
+        public bool TryParseData(int bytesReceived, byte[] data, out byte[] parsedData)
         {
             packetBytesReceived += bytesReceived;
             if (packetBytesReceived == bytesReceived) // Is first time?
@@ -27,14 +27,55 @@ namespace MetaMitStandard.Utils
                 {
                     SessionFlagsFound?.Invoke(packetSessionFlags);
                 }
-                if (packetBytesReceived >= packetLength) // Is all data received?
+                if (packetBytesReceived == packetLength) // Is all data received?
                 {
                     int bytesToKeep = packetLength + OverheadBytes;
+                    byte[] trimmedData = new byte[bytesToKeep];
+                    Buffer.BlockCopy(data, 0, trimmedData, 0, bytesToKeep);
+                    packetSegments.Add(trimmedData);
+                    parsedData = GetData();
+                    return true;
                 }
+                else if (packetBytesReceived >= packetLength) // Is all data read with over
             }
             else // Is not first time?
             {
 
+            }
+        }
+
+        public bool TryParseData2(int bytesReceived, byte[] data, out List<byte[]> parsedData)
+        {
+            parsedData = new List<byte[]>();
+            bool allDataParsed = false;
+            int dataStartIndex = 0;
+            while (!allDataParsed)
+            {
+                // Need to make something later to see if current data is partial packet\
+                bool isNewPacket = packetSegments.Count == 0;
+                if (isNewPacket) // New packet
+                {
+                    packetLength = BitConverter.ToUInt16(data, dataStartIndex);
+                    packetSessionFlags = BitConverter.ToUInt16(data, dataStartIndex + 2);
+                    if (packetSessionFlags > 0)
+                    {
+                        SessionFlagsFound?.Invoke(packetSessionFlags);
+                    }
+                    int accessibleDataCount = Math.Min(packetLength, data.Length - dataStartIndex);
+                    byte[] accessibleData = new byte[accessibleDataCount];
+                    Buffer.BlockCopy(data, dataStartIndex, accessibleData, 0, accessibleDataCount);
+                    packetBytesReceived += accessibleDataCount;
+                    packetSegments.Add(accessibleData);
+                    dataStartIndex += packetBytesReceived;
+                }
+                else // Old packet
+                {
+                    int accessibleDataCount = Math.Min(packetLength, data.Length - dataStartIndex);
+                }
+                if (packetBytesReceived == packetLength)
+                {
+                    parsedData.Add(GetData());
+                }
             }
         }
 
@@ -50,7 +91,7 @@ namespace MetaMitStandard.Utils
 
         private byte[] GetData()
         {
-            byte[][] arrays = dataSegments.ToArray();
+            byte[][] arrays = packetSegments.ToArray();
             byte[] combinedArray = new byte[arrays.Sum(a => a.Length)];
             int offset = 0;
             foreach (byte[] array in arrays)
@@ -64,7 +105,7 @@ namespace MetaMitStandard.Utils
 
         private void Reset()
         {
-            dataSegments.Clear();
+            packetSegments.Clear();
             packetBytesReceived = 0;
             packetLength = 0;
         }
