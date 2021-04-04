@@ -173,9 +173,12 @@ namespace MetaMitStandard
                 {
                     clientConnection.bytesReceived += bytesReceived;
                     Console.WriteLine("Received: " + bytesReceived);
-                    if (clientConnection.dataParser.TryParseData(bytesReceived, clientConnection.buffer, out byte[] data))
+                    if (clientConnection.dataParser.TryParseData(bytesReceived, clientConnection.buffer, out List<byte[]> builtData))
                     {
-                        QueueEvent(new DataReceivedEventArgs(clientConnection.guid, data));
+                        foreach(byte[] data in builtData)
+                        {
+                            QueueEvent(new DataReceivedEventArgs(clientConnection.guid, data));
+                        }
                     }
                     clientConnection.socket.BeginReceive(clientConnection.buffer, 0, clientConnection.buffer.Length, SocketFlags.None, new AsyncCallback(ReceiveCallback), clientConnection);
                 }

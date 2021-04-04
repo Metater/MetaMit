@@ -9,6 +9,7 @@ namespace MetaMitStandard.Utils
     public class DataUnpacker
     {
         private List<byte[]> packetSegments = new List<byte[]>();
+        private int packetSegmentsCount => packetSegments.Count;
         private ushort packetLength = 0;
         private ushort packetSessionFlags = 0;
         private int packetBytesReceived = 0;
@@ -16,6 +17,7 @@ namespace MetaMitStandard.Utils
 
         public event Action<ushort> SessionFlagsFound;
 
+        /*
         public bool TryParseData(int bytesReceived, byte[] data, out byte[] parsedData)
         {
             packetBytesReceived += bytesReceived;
@@ -33,7 +35,7 @@ namespace MetaMitStandard.Utils
                     byte[] trimmedData = new byte[bytesToKeep];
                     Buffer.BlockCopy(data, 0, trimmedData, 0, bytesToKeep);
                     packetSegments.Add(trimmedData);
-                    parsedData = GetData();
+                    parsedData = CombineSegments();
                     return true;
                 }
                 else if (packetBytesReceived >= packetLength) // Is all data read with over
@@ -43,8 +45,9 @@ namespace MetaMitStandard.Utils
 
             }
         }
+        */
 
-        public bool TryParseData2(int bytesReceived, byte[] data, out List<byte[]> parsedData)
+        public bool TryParseData(int bytesReceived, byte[] data, out List<byte[]> parsedData)
         {
             parsedData = new List<byte[]>();
             bool allDataParsed = false;
@@ -52,7 +55,7 @@ namespace MetaMitStandard.Utils
             while (!allDataParsed)
             {
                 // Need to make something later to see if current data is partial packet\
-                bool isNewPacket = packetSegments.Count == 0;
+                bool isNewPacket = packetSegmentsCount == 0;
                 if (isNewPacket) // New packet
                 {
                     packetLength = BitConverter.ToUInt16(data, dataStartIndex);
@@ -63,20 +66,31 @@ namespace MetaMitStandard.Utils
                     }
                     int accessibleDataCount = Math.Min(packetLength, data.Length - dataStartIndex);
                     byte[] accessibleData = new byte[accessibleDataCount];
+                    Buffer.BlockCopy(data, dataStartIndex + OverheadBytes, accessibleData, 0, accessibleDataCount);
+                    packetBytesReceived += accessibleDataCount;
+                    packetSegments.Add(accessibleData);
+                    dataStartIndex += packetBytesReceived + OverheadBytes;
+                }
+                else // Old packet
+                {
+                    int accessibleDataCount = Math.Min((data.Length * packetSegmentsCount) - packetLength, data.Length - dataStartIndex);
+                    byte[] accessibleData = new byte[accessibleDataCount];
                     Buffer.BlockCopy(data, dataStartIndex, accessibleData, 0, accessibleDataCount);
                     packetBytesReceived += accessibleDataCount;
                     packetSegments.Add(accessibleData);
                     dataStartIndex += packetBytesReceived;
                 }
-                else // Old packet
-                {
-                    int accessibleDataCount = Math.Min(packetLength, data.Length - dataStartIndex);
-                }
                 if (packetBytesReceived == packetLength)
-                {
-                    parsedData.Add(GetData());
+                {   
+                    parsedData.Add(CombineSegments());
                 }
+                if (dataStartIndex >= bytesReceived)
+                {
+                    allDataParsed = true;
+                }
+                Console.WriteLine("One parser loop done!");
             }
+            return parsedData.Count != 0;
         }
 
         public bool GetSessionFlag(SessionFlag sessionFlag)
@@ -89,7 +103,7 @@ namespace MetaMitStandard.Utils
             return ((sessionFlags >> index) & 1) != 0;
         }
 
-        private byte[] GetData()
+        private byte[] CombineSegments()
         {
             byte[][] arrays = packetSegments.ToArray();
             byte[] combinedArray = new byte[arrays.Sum(a => a.Length)];
@@ -100,7 +114,8 @@ namespace MetaMitStandard.Utils
                 offset += array.Length;
             }
             Reset();
-            return combinedArray.Skip(OverheadBytes).ToArray();
+            //return combinedArray.Skip(OverheadBytes).ToArray();
+            return combinedArray.ToArray();
         }
 
         private void Reset()
