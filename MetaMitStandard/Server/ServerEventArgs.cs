@@ -79,8 +79,7 @@ namespace MetaMitStandard.Server
         Requested,
         ExceptionOnAccept,
         ExceptionOnReceive,
-        ExceptionOnSend,
-        ExceptionOnDisconnect
+        ExceptionOnSend
     }
     public enum ServerStoppedReason
     {

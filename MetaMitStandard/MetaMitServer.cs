@@ -13,7 +13,7 @@ namespace MetaMitStandard
 {
     public sealed class MetaMitServer : IDisposable
     {
-        public IPEndPoint ep;
+        private IPEndPoint ep;
         private int backlog;
         private Socket listener;
         private bool serverClosed = true;
@@ -30,11 +30,12 @@ namespace MetaMitStandard
         public MetaMitServer(int port, int backlog)
         {
             this.backlog = backlog;
-            ep = Utils.NetworkUtils.GetEndPoint(Utils.NetworkUtils.GetLocalIPv4(), port);
+            ep = NetworkUtils.GetEndPoint(NetworkUtils.GetLocalIPv4(), port);
             listener = new Socket(AddressFamily.InterNetworkV6, SocketType.Stream, ProtocolType.Tcp);
             listener.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IPv6Only, false);
         }
 
+        #region PublicMethods
         public void Start()
         {
             try
@@ -85,6 +86,7 @@ namespace MetaMitStandard
                 }
             }
         }
+
         public void BroadcastToBut(ClientConnection skipConnection, byte[] data)
         {
             lock (connections)
@@ -135,8 +137,9 @@ namespace MetaMitStandard
         {
             listener.Dispose();
         }
+        #endregion PublicMethods
 
-        #region Events
+        #region EventManagement
         private void QueueEvent(ServerEventArgs serverEventArgs)
         {
             eventQueue.Enqueue(new ServerEvent(serverEventArgs));
@@ -163,8 +166,7 @@ namespace MetaMitStandard
                     break;
             }
         }
-        #endregion Events
-
+        #endregion EventManagement
 
         #region Callbacks
         private void AcceptCallback(IAsyncResult ar)
@@ -195,6 +197,7 @@ namespace MetaMitStandard
             }
             listener.BeginAccept(new AsyncCallback(AcceptCallback), null);
         }
+
         private void ReceiveCallback(IAsyncResult ar)
         {
             ClientConnection clientConnection = (ClientConnection)ar.AsyncState;
@@ -215,7 +218,7 @@ namespace MetaMitStandard
                 }
                 else
                 {
-                    ForceDisconnectClient(clientConnection, ClientDisconnectedReason.ExceptionOnReceive, "Bytes read was less than or equal to 0");
+                    ForceDisconnectClient(clientConnection, ClientDisconnectedReason.ExceptionOnReceive, "Bytes received was less than or equal to 0");
                 }
             }
             catch (SocketException e)
@@ -223,6 +226,7 @@ namespace MetaMitStandard
                 ForceDisconnectClient(clientConnection, ClientDisconnectedReason.ExceptionOnReceive, e.ToString());
             }
         }
+
         private void SendCallback(IAsyncResult ar) // Add events here later
         {
             ClientConnection clientConnection = (ClientConnection)ar.AsyncState;
@@ -236,21 +240,23 @@ namespace MetaMitStandard
                 ForceDisconnectClient(clientConnection, ClientDisconnectedReason.ExceptionOnSend, e.ToString());
             }
         }
+
         private void DisconnectCallback(IAsyncResult ar)
         {
             ClientConnection clientConnection = (ClientConnection)ar.AsyncState;
             try
             {
                 clientConnection.socket.EndDisconnect(ar);
-                QueueEvent(new ClientDisconnectedEventArgs(clientConnection.guid, ClientDisconnectedReason.Requested, "A client properly disconnected"));
             }
-            catch (SocketException e)
+            catch (SocketException)
             {
-                QueueEvent(new ClientDisconnectedEventArgs(clientConnection.guid, ClientDisconnectedReason.ExceptionOnDisconnect, e.ToString()));
+
             }
+            QueueEvent(new ClientDisconnectedEventArgs(clientConnection.guid, ClientDisconnectedReason.Requested, "A client properly disconnected"));
         }
         #endregion Callbacks
 
+        #region ClientManagement
         private void ForceDisconnectClient(ClientConnection clientConnection, ClientDisconnectedReason reason, string message)
         {
             if (clientConnection != null)
@@ -280,7 +286,6 @@ namespace MetaMitStandard
             clientConnection = null;
             return false;
         }
-
-
+        #endregion ClientManagement
     }
 }
