@@ -204,9 +204,9 @@ namespace MetaMitStandard
                 if (bytesReceived > 0)
                 {
                     clientConnection.bytesReceived += bytesReceived;
-                    if (clientConnection.dataParser.TryParseData(bytesReceived, clientConnection.buffer, out List<byte[]> builtData))
+                    if (clientConnection.dataParser.TryParseData(bytesReceived, clientConnection.buffer, out List<byte[]> parsedData))
                     {
-                        foreach(byte[] data in builtData)
+                        foreach(byte[] data in parsedData)
                         {
                             QueueEvent(new DataReceivedEventArgs(clientConnection, data));
                         }
