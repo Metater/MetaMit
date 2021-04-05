@@ -64,7 +64,7 @@ namespace MetaMitStandard.Utils
                     {
                         SessionFlagsFound?.Invoke(packetSessionFlags);
                     }
-                    int accessibleDataCount = Math.Min(packetLength, data.Length - dataStartIndex);
+                    int accessibleDataCount = Math.Min(packetLength, (data.Length - dataStartIndex) - OverheadBytes);
                     byte[] accessibleData = new byte[accessibleDataCount];
                     Buffer.BlockCopy(data, dataStartIndex + OverheadBytes, accessibleData, 0, accessibleDataCount);
                     packetBytesReceived += accessibleDataCount;
@@ -73,14 +73,14 @@ namespace MetaMitStandard.Utils
                 }
                 else // Old packet
                 {
-                    int accessibleDataCount = Math.Min((data.Length * packetSegmentsCount) - packetLength, data.Length - dataStartIndex);
+                    int accessibleDataCount = Math.Min(packetLength - (data.Length * packetSegmentsCount), data.Length - dataStartIndex);
                     byte[] accessibleData = new byte[accessibleDataCount];
                     Buffer.BlockCopy(data, dataStartIndex, accessibleData, 0, accessibleDataCount);
                     packetBytesReceived += accessibleDataCount;
                     packetSegments.Add(accessibleData);
                     dataStartIndex += packetBytesReceived;
                 }
-                if (packetBytesReceived == packetLength)
+                if ((packetBytesReceived == packetLength && isNewPacket) || (packetBytesReceived + OverheadBytes == packetLength && !isNewPacket))
                 {   
                     parsedData.Add(CombineSegments());
                 }
