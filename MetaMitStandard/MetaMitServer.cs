@@ -207,7 +207,7 @@ namespace MetaMitStandard
                 if (bytesReceived > 0)
                 {
                     clientConnection.bytesReceived += bytesReceived;
-                    if (clientConnection.dataParser.TryParseData(bytesReceived, clientConnection.buffer, out List<byte[]> parsedData))
+                    if (clientConnection.dataUnpacker.TryParseData(bytesReceived, clientConnection.buffer, out List<byte[]> parsedData))
                     {
                         foreach(byte[] data in parsedData)
                         {
@@ -267,7 +267,16 @@ namespace MetaMitStandard
                     connections.Remove(clientConnection);
                 }
             }
-            QueueEvent(new ClientDisconnectedEventArgs(clientConnection.guid, reason, message));
+            lock (clientConnection)
+            {
+                if (clientConnection.isActive)
+                {
+                    clientConnection.isActive = false;
+                    QueueEvent(new ClientDisconnectedEventArgs(clientConnection.guid, reason, message));
+                }
+            }
+            clientConnection.Dispose();
+            clientConnection = null;
         }
 
         private bool TryGetClientConnection(Guid guid, out ClientConnection clientConnection)
