@@ -51,6 +51,17 @@ namespace MetaMitStandard.Utils
                 }
                 return username;
             }
+            public static string AskQuestionString(Func<string, bool> valid)
+            {
+                bool questionValid = false;
+                string answer = "";
+                while (!questionValid)
+                {
+                    answer = Console.ReadLine();
+                    questionValid = valid(answer);
+                }
+                return answer;
+            }
         }
     }
 }
