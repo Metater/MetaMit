@@ -51,14 +51,17 @@ namespace MetaMitStandard.Utils
                 }
                 return username;
             }
-            public static string AskQuestionString(Func<string, bool> valid)
+            public static string AskQuestionString(string question, Func<string, (bool, string)> valid)
             {
                 bool questionValid = false;
                 string answer = "";
                 while (!questionValid)
                 {
+                    Console.WriteLine(question);
                     answer = Console.ReadLine();
-                    questionValid = valid(answer);
+                    (bool, string) response = valid(answer);
+                    questionValid = response.Item1;
+                    answer = response.Item2;
                 }
                 return answer;
             }
