@@ -44,6 +44,10 @@ namespace MetaMitStandard
             Buffer.BlockCopy(data, 0, rv, length.Length + sessionFlags.Length, data.Length);
             serverConnection.socket.BeginSend(rv, 0, rv.Length, SocketFlags.None, new AsyncCallback(SendCallback), null);
         }
+        public void SendRaw(byte[] data)
+        {
+            serverConnection.socket.BeginSend(data, 0, data.Length, SocketFlags.None, new AsyncCallback(SendCallback), null);
+        }
 
         public void PollEvents()
         {

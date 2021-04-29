@@ -19,7 +19,8 @@ namespace MetaMitStandard.Server
         public long bytesReceived = 0;
         public long bytesSent = 0;
 
-        public const int BufferSize = 4096;
+        //public const int BufferSize = 4096;
+        public const int BufferSize = 8;
 
         public DataPacker dataPacker = new DataPacker();
         public DataUnpacker dataUnpacker = new DataUnpacker();

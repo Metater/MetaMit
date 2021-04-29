@@ -13,6 +13,7 @@ namespace MetaMitStandard.Utils
         private ushort packetLength = 0;
         private ushort packetSessionFlags = 0;
         private int packetBytesReceived = 0;
+        private int previousBytesReceived = 0;
 
         private const int OverheadBytes = 4;
         private const int SessionFlagsCount = 2;
@@ -52,17 +53,21 @@ namespace MetaMitStandard.Utils
                 }
                 else // Old packet
                 {
-                    int accessibleDataCount = Math.Min(packetLength - (data.Length * packetSegmentsCount), data.Length - dataStartIndex);
+                    int accessibleDataCount = (packetLength - (data.Length * (packetSegmentsCount - 1)))-packetBytesReceived;
+                    //int accessibleDataCount = Math.Min((packetLength - (data.Length * (packetSegmentsCount-1)))-packetBytesReceived, data.Length - dataStartIndex);
                     byte[] accessibleData = new byte[accessibleDataCount];
                     Buffer.BlockCopy(data, dataStartIndex, accessibleData, 0, accessibleDataCount);
+                    previousBytesReceived += packetBytesReceived;
                     packetBytesReceived += accessibleDataCount;
                     packetSegments.Add(accessibleData);
                     dataStartIndex += packetBytesReceived;
                 }
-                if ((packetBytesReceived == packetLength && isNewPacket) || (packetBytesReceived + OverheadBytes == packetLength && !isNewPacket))
+                if ((packetBytesReceived == packetLength && isNewPacket) || (packetBytesReceived + OverheadBytes == packetLength + previousBytesReceived && !isNewPacket))
                 {   
                     parsedData.Add(CombineSegments());
+                    previousBytesReceived = 0;
                 }
+                // ADD: If overhead split carry over data to next
                 if (dataStartIndex >= bytesReceived)
                 {
                     allDataParsed = true;

@@ -13,7 +13,7 @@ namespace MetaMitStandard
 {
     public sealed class MetaMitServer : IDisposable
     {
-        private IPEndPoint ep;
+        public IPEndPoint ep;
         private int backlog;
         private Socket listener;
         private bool serverClosed = true;
@@ -73,6 +73,17 @@ namespace MetaMitStandard
             if (TryGetClientConnection(guid, out ClientConnection clientConnection))
             {
                 Send(clientConnection, data);
+            }
+        }
+        public void SendRaw(ClientConnection clientConnection, byte[] data)
+        {
+            clientConnection.socket.BeginSend(data, 0, data.Length, SocketFlags.None, new AsyncCallback(SendCallback), clientConnection);
+        }
+        public void SendRaw(Guid guid, byte[] data)
+        {
+            if (TryGetClientConnection(guid, out ClientConnection clientConnection))
+            {
+                SendRaw(clientConnection, data);
             }
         }
 
