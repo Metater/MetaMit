@@ -30,6 +30,7 @@ namespace MetaMitStandard.Utils
                 bool isNewPacket = packetSegmentsCount == 0;
                 if (isNewPacket) // New packet
                 {
+                    // Need to make new packet more flexible
                     packetLength = BitConverter.ToUInt16(data, dataStartIndex);
                     packetSessionFlags = BitConverter.ToUInt16(data, dataStartIndex + 2);
                     if (packetSessionFlags > 0)
