@@ -23,7 +23,7 @@ namespace MetaMitStandard.Server
         public const int BufferSize = 8;
 
         public DataPacker dataPacker = new DataPacker();
-        public DataUnpacker dataUnpacker = new DataUnpacker();
+        public DataUnpackerNew dataUnpacker = new DataUnpackerNew();
 
         public Guid guid = Guid.NewGuid();
 
