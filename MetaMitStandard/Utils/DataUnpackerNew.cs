@@ -9,6 +9,7 @@ namespace MetaMitStandard.Utils
         private List<byte[]> dataSegments = new List<byte[]>();
         private ushort dataLength = 0;
         private ushort sessionFlags = 0;
+        private int unreadData = -1;
 
         public bool TryParseData(int bytesReceived, byte[] data, out List<byte[]> unpackedData, out ushort sessionFlags)
         {
