@@ -11,11 +11,11 @@ namespace MetaMitStandard.Utils
         private ushort dataLength = 0;
         private ushort sessionFlags = 0;
         private int unreadData = -1;
+        private byte[] overheadCarryover = new byte[4];
 
         public bool TryUnpackData(int bytesReceived, byte[] data, out List<byte[]> unpackedData, out ushort sessionFlags)
         {
-            int unreadBufferData = -1;
-            unreadBufferData = bytesReceived;
+            int unreadBufferData = bytesReceived;
             unpackedData = new List<byte[]>();
 
             while (unreadBufferData > 0) // Done reading entire buffer
