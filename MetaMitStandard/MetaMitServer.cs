@@ -218,7 +218,7 @@ namespace MetaMitStandard
                 if (bytesReceived > 0)
                 {
                     clientConnection.bytesReceived += bytesReceived;
-                    if (clientConnection.dataUnpacker.TryUnpackData(bytesReceived, clientConnection.buffer, out List<byte[]> unpackedData, out ushort sessionFlags))
+                    if (clientConnection.dataUnpacker.TryUnpackData(bytesReceived, clientConnection.buffer, out List<byte[]> unpackedData, out List<ushort> sessionFlags))
                     {
                         foreach(byte[] data in unpackedData)
                         {
