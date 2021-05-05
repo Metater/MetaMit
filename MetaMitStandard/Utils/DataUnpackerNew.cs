@@ -9,38 +9,55 @@ namespace MetaMitStandard.Utils
     {
         private List<byte[]> dataSegments = new List<byte[]>();
         private ushort dataLength = 0;
-        private ushort sessionFlags = 0;
         private int unreadData = -1;
-        private byte[] overheadCarryover = new byte[4];
+        private byte[] overheadCarryover = new byte[3];
+        private int overheadBytes = 0;
 
-        public bool TryUnpackData(int bytesReceived, byte[] data, out List<byte[]> unpackedData, out ushort sessionFlags)
+        public bool TryUnpackData(int bytesReceived, byte[] data, out List<byte[]> unpackedData, out List<ushort> sessionFlags)
         {
+            if (overheadBytes > 0)
+            {
+                byte[] concatData = new byte[data.Length + overheadBytes];
+                Buffer.BlockCopy(overheadCarryover, 0, concatData, 0, overheadBytes);
+                Buffer.BlockCopy(data, 0, concatData, overheadBytes, data.Length);
+                data = concatData;
+                bytesReceived += overheadBytes;
+                overheadBytes = 0;
+            }
+
             int unreadBufferData = bytesReceived;
             unpackedData = new List<byte[]>();
+            sessionFlags = new List<ushort>();
 
             while (unreadBufferData > 0) // Done reading entire buffer
             {
                 if (unreadData == -1) // Ready to start reading a new packet
                 {
-                    dataLength = BitConverter.ToUInt16(data, bytesReceived - unreadBufferData);
-                    unreadBufferData -= 2;
-                    sessionFlags = BitConverter.ToUInt16(data, bytesReceived - unreadBufferData);
-                    unreadBufferData -= 2;
+                    if (unreadBufferData > 3)
+                    {
+                        dataLength = BitConverter.ToUInt16(data, bytesReceived - unreadBufferData);
+                        unreadBufferData -= 2;
+                        ushort dataSessionFlags = BitConverter.ToUInt16(data, bytesReceived - unreadBufferData);
+                        unreadBufferData -= 2;
+                        if (dataSessionFlags > 0) sessionFlags.Add(dataSessionFlags);
 
-                    unreadData = dataLength;
+                        unreadData = dataLength;
+                    }
+                    else
+                    {
+                        overheadBytes = unreadBufferData;
+                        Buffer.BlockCopy(data, bytesReceived - unreadBufferData, overheadCarryover, 0, overheadBytes);
+                        break;
+                    }
                 }
-                else // Continue reading data from a packet
-                {
 
-                }
                 int readableData = Math.Min(unreadData, unreadBufferData);
                 byte[] dataSegment = new byte[readableData];
                 Buffer.BlockCopy(data, bytesReceived - unreadBufferData, dataSegment, 0, readableData);
                 dataSegments.Add(dataSegment);
                 unreadBufferData -= readableData;
                 unreadData -= readableData;
-                Console.WriteLine(unreadBufferData);
-                Console.WriteLine(unreadData);
+
                 if (unreadData == 0) // Done reading a packet
                 {
                     unpackedData.Add(CombineSegments());
@@ -49,19 +66,6 @@ namespace MetaMitStandard.Utils
                 }
             }
 
-
-
-
-
-            if (data.Length != bytesReceived) // The buffer only contains a packet or packets that are not partial
-            {
-
-            }
-            else // Buffer contains packets and a partial packet, or a partial packet
-            {
-
-            }
-            sessionFlags = this.sessionFlags;
             return unpackedData.Count != 0;
         }
 
