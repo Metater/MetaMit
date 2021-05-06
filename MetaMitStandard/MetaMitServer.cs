@@ -16,7 +16,7 @@ namespace MetaMitStandard
         public IPEndPoint ep;
         private int backlog;
         private Socket listener;
-        private bool serverClosed = true;
+        private bool serverOpen = false;
 
         private List<ClientConnection> connections = new List<ClientConnection>();
         private ConcurrentQueue<ServerEvent> eventQueue = new ConcurrentQueue<ServerEvent>();
@@ -42,7 +42,7 @@ namespace MetaMitStandard
             {
                 listener.Bind(ep);
                 listener.Listen(backlog);
-                serverClosed = false;
+                serverOpen = true;
                 listener.BeginAccept(new AsyncCallback(AcceptCallback), listener);
                 QueueEvent(new ServerStartedEventArgs());
             }
@@ -54,7 +54,7 @@ namespace MetaMitStandard
 
         public void Stop()
         {
-            serverClosed = true;
+            serverOpen = false;
             listener.Close();
         }
 
@@ -182,7 +182,7 @@ namespace MetaMitStandard
         #region Callbacks
         private void AcceptCallback(IAsyncResult ar)
         {
-            if (serverClosed)
+            if (!serverOpen)
             {
                 QueueEvent(new ServerStoppedEventArgs(ServerStoppedReason.Requested, "The server has been stopped"));
                 return;
@@ -191,6 +191,7 @@ namespace MetaMitStandard
             try
             {
                 clientConnection.socket = listener.EndAccept(ar);
+                clientConnection.isActive = true;
                 lock (connections)
                 {
                     connections.Add(clientConnection);
@@ -200,11 +201,11 @@ namespace MetaMitStandard
             }
             catch (SocketException e)
             {
-                ForceDisconnectClient(clientConnection, ClientDisconnectedReason.ExceptionOnAccept, e.ToString());
+                DisconnectClient(clientConnection, ClientDisconnectedReason.ExceptionOnAccept, e.ToString(), true);
             }
             catch (Exception e)
             {
-                ForceDisconnectClient(clientConnection, ClientDisconnectedReason.ExceptionOnAccept, e.ToString());
+                DisconnectClient(clientConnection, ClientDisconnectedReason.ExceptionOnAccept, e.ToString(), true);
             }
             listener.BeginAccept(new AsyncCallback(AcceptCallback), null);
         }
@@ -229,12 +230,12 @@ namespace MetaMitStandard
                 }
                 else
                 {
-                    ForceDisconnectClient(clientConnection, ClientDisconnectedReason.ExceptionOnReceive, "Bytes received was less than or equal to 0");
+                    DisconnectClient(clientConnection, ClientDisconnectedReason.ExceptionOnReceive, "Bytes received was less than or equal to 0", true);
                 }
             }
             catch (SocketException e)
             {
-                ForceDisconnectClient(clientConnection, ClientDisconnectedReason.ExceptionOnReceive, e.ToString());
+                DisconnectClient(clientConnection, ClientDisconnectedReason.ExceptionOnReceive, e.ToString(), true);
             }
         }
 
@@ -248,7 +249,7 @@ namespace MetaMitStandard
             }
             catch (SocketException e)
             {
-                ForceDisconnectClient(clientConnection, ClientDisconnectedReason.ExceptionOnSend, e.ToString());
+                DisconnectClient(clientConnection, ClientDisconnectedReason.ExceptionOnSend, e.ToString(), true);
             }
         }
 
@@ -263,31 +264,26 @@ namespace MetaMitStandard
             {
 
             }
-            QueueEvent(new ClientDisconnectedEventArgs(clientConnection.guid, ClientDisconnectedReason.Requested, "A client properly disconnected"));
+            DisconnectClient(clientConnection, ClientDisconnectedReason.Requested, "A client properly disconnected", false);
         }
         #endregion Callbacks
 
         #region ClientManagement
-        private void ForceDisconnectClient(ClientConnection clientConnection, ClientDisconnectedReason reason, string message)
+        private void DisconnectClient(ClientConnection clientConnection, ClientDisconnectedReason reason, string message, bool closeSocket)
         {
-            if (clientConnection != null)
+            if (clientConnection.isActive)
             {
-                clientConnection.socket.Close();
+                clientConnection.isActive = false;
+                if (closeSocket) clientConnection.socket.Close();
                 lock (connections)
                 {
-                    connections.Remove(clientConnection);
-                }
-            }
-            lock (clientConnection)
-            {
-                if (clientConnection.isActive)
-                {
-                    clientConnection.isActive = false;
-                    QueueEvent(new ClientDisconnectedEventArgs(clientConnection.guid, reason, message));
+                    if (connections.Remove(clientConnection))
+                    {
+                        QueueEvent(new ClientDisconnectedEventArgs(clientConnection.guid, reason, message));
+                    }
                 }
             }
             clientConnection.Dispose();
-            clientConnection = null;
         }
 
         private bool TryGetClientConnection(Guid guid, out ClientConnection clientConnection)
