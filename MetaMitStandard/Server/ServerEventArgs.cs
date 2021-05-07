@@ -9,14 +9,17 @@ namespace MetaMitStandard.Server
     {
         public ServerEventType eventType;
     }
+
     public enum ServerEventType
     {
         ClientConnected,
         ClientDisconnected,
         DataReceived,
+        DataSent,
         ServerStarted,
         ServerStopped
     }
+
     public class ClientConnectedEventArgs : ServerEventArgs
     {
         public Guid guid;
@@ -55,6 +58,18 @@ namespace MetaMitStandard.Server
             this.data = data;
         }
     }
+    public class DataSentEventArgs : ServerEventArgs
+    {
+        public ClientConnection clientConnection;
+        public int bytesSent;
+
+        public DataSentEventArgs(ClientConnection clientConnection, int bytesSent)
+        {
+            eventType = ServerEventType.DataSent;
+            this.clientConnection = clientConnection;
+            this.bytesSent = bytesSent;
+        }
+    }
     public class ServerStartedEventArgs : ServerEventArgs
     {
         public ServerStartedEventArgs()
@@ -74,6 +89,7 @@ namespace MetaMitStandard.Server
             this.message = message;
         }
     }
+
     public enum ClientDisconnectedReason
     {
         Requested,
@@ -81,6 +97,7 @@ namespace MetaMitStandard.Server
         ExceptionOnReceive,
         ExceptionOnSend
     }
+
     public enum ServerStoppedReason
     {
         Requested,
