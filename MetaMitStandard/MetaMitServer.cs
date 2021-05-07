@@ -1,11 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
-using System.Threading.Tasks;
 using System.Collections.Concurrent;
 using System.Net.Sockets;
 using System.Net;
-using System.Threading;
 using MetaMitStandard.Server;
 using MetaMitStandard.Utils;
 
@@ -20,10 +17,12 @@ namespace MetaMitStandard
 
         private List<ClientConnection> connections = new List<ClientConnection>();
         private ConcurrentQueue<ServerEvent> eventQueue = new ConcurrentQueue<ServerEvent>();
+        private ConcurrentDictionary<Guid, ClientConnection> clientDictionary = new ConcurrentDictionary<Guid, ClientConnection>();
 
         public event EventHandler<ClientConnectedEventArgs> ClientConnected;
-        public event EventHandler<ClientDisconnectedEventArgs> ClientDisconnected; // Currently, the client disconnected event could go off multiple times per disconnect
+        public event EventHandler<ClientDisconnectedEventArgs> ClientDisconnected;
         public event EventHandler<DataReceivedEventArgs> DataReceived;
+        public event EventHandler<DataSentEventArgs> DataSent;
         public event EventHandler<ServerStartedEventArgs> ServerStarted;
         public event EventHandler<ServerStoppedEventArgs> ServerStopped;
 
@@ -58,67 +57,47 @@ namespace MetaMitStandard
             listener.Close();
         }
 
-        public void Send(ClientConnection clientConnection, byte[] data)
+        #region Sending
+        public void Send(ClientConnection clientConnection, byte[] data, bool includeOverhead = true)
         {
-            byte[] length = BitConverter.GetBytes((ushort)data.Length);
-            byte[] sessionFlags = BitConverter.GetBytes((ushort)0);
-            byte[] rv = new byte[length.Length + sessionFlags.Length + data.Length];
-            Buffer.BlockCopy(length, 0, rv, 0, length.Length);
-            Buffer.BlockCopy(sessionFlags, 0, rv, length.Length, sessionFlags.Length);
-            System.Buffer.BlockCopy(data, 0, rv, length.Length + sessionFlags.Length, data.Length);
-            clientConnection.socket.BeginSend(rv, 0, rv.Length, SocketFlags.None, new AsyncCallback(SendCallback), clientConnection);
+            byte[] packedData;
+            if (includeOverhead) packedData = DataPacker.PackData(data, 0);
+            else packedData = data;
+            clientConnection.socket.BeginSend(packedData, 0, packedData.Length, SocketFlags.None, new AsyncCallback(SendCallback), clientConnection);
         }
-        public void Send(Guid guid, byte[] data) // May want to keep a map of guids to client connections somewhere, this locks connections
+        public void Send(Guid guid, byte[] data, bool includeOverhead = true)
         {
             if (TryGetClientConnection(guid, out ClientConnection clientConnection))
             {
-                Send(clientConnection, data);
-            }
-        }
-        public void SendRaw(ClientConnection clientConnection, byte[] data)
-        {
-            clientConnection.socket.BeginSend(data, 0, data.Length, SocketFlags.None, new AsyncCallback(SendCallback), clientConnection);
-        }
-        public void SendRaw(Guid guid, byte[] data)
-        {
-            if (TryGetClientConnection(guid, out ClientConnection clientConnection))
-            {
-                SendRaw(clientConnection, data);
+                Send(clientConnection, data, includeOverhead);
             }
         }
 
         public void Broadcast(byte[] data)
         {
-            lock (connections)
-            {
-                foreach(ClientConnection connection in connections)
-                {
-                    Send(connection, data);
-                }
-            }
+            List<ClientConnection> cachedConnections = (List<ClientConnection>)clientDictionary.Keys;
+            foreach (ClientConnection connection in cachedConnections)
+                Send(connection, data);
         }
-
+        public void Broadcast(byte[] data, Func<ClientConnection, bool> shouldSend)
+        {
+            List<ClientConnection> cachedConnections = (List<ClientConnection>)clientDictionary.Keys;
+            foreach (ClientConnection connection in cachedConnections)
+                if (shouldSend(connection))
+                    Send(connection, data);
+        }
         public void BroadcastToBut(ClientConnection skipConnection, byte[] data)
         {
-            lock (connections)
-            {
-                foreach (ClientConnection connection in connections)
-                    if (connection != skipConnection)
-                        Send(connection, data);
-            }
+            Broadcast(data, (connection) => { return connection != skipConnection; });
         }
         public void BroadcastToBut(Guid guid, byte[] data)
         {
-            lock (connections)
+            if (TryGetClientConnection(guid, out ClientConnection skipConnection))
             {
-                if (TryGetClientConnection(guid, out ClientConnection skipConnection))
-                {
-                    foreach (ClientConnection connection in connections)
-                        if (connection != skipConnection)
-                            Send(connection, data);
-                }
+                BroadcastToBut(skipConnection, data);
             }
         }
+        #endregion Sending
 
         public void Disconnect(ClientConnection clientConnection)
         {
@@ -169,6 +148,9 @@ namespace MetaMitStandard
                 case ServerEventType.DataReceived:
                     DataReceived?.Invoke(this, (DataReceivedEventArgs)serverEvent.serverEventArgs);
                     break;
+                case ServerEventType.DataSent:
+                    DataSent?.Invoke(this, (DataSentEventArgs)serverEvent.serverEventArgs);
+                    break;
                 case ServerEventType.ServerStarted:
                     ServerStarted?.Invoke(this, (ServerStartedEventArgs)serverEvent.serverEventArgs);
                     break;
@@ -196,12 +178,9 @@ namespace MetaMitStandard
                 {
                     connections.Add(clientConnection);
                 }
+                clientDictionary.TryAdd(clientConnection.guid, clientConnection);
                 QueueEvent(new ClientConnectedEventArgs(clientConnection.guid, clientConnection.socket.RemoteEndPoint));
                 clientConnection.socket.BeginReceive(clientConnection.buffer, 0, clientConnection.buffer.Length, SocketFlags.None, new AsyncCallback(ReceiveCallback), clientConnection);
-            }
-            catch (SocketException e)
-            {
-                DisconnectClient(clientConnection, ClientDisconnectedReason.ExceptionOnAccept, e.ToString(), true);
             }
             catch (Exception e)
             {
@@ -213,6 +192,7 @@ namespace MetaMitStandard
         private void ReceiveCallback(IAsyncResult ar)
         {
             ClientConnection clientConnection = (ClientConnection)ar.AsyncState;
+            if (!clientConnection.isActive) return;
             try
             {
                 int bytesReceived = clientConnection.socket.EndReceive(ar);
@@ -223,6 +203,7 @@ namespace MetaMitStandard
                     {
                         foreach(byte[] data in unpackedData)
                         {
+                            clientConnection.packetsReceived++;
                             QueueEvent(new DataReceivedEventArgs(clientConnection, data));
                         }
                     }
@@ -242,10 +223,13 @@ namespace MetaMitStandard
         private void SendCallback(IAsyncResult ar) // Add events here later
         {
             ClientConnection clientConnection = (ClientConnection)ar.AsyncState;
+            if (!clientConnection.isActive) return;
             try
             {
                 int bytesSent = clientConnection.socket.EndSend(ar);
                 clientConnection.bytesSent += bytesSent;
+                clientConnection.packetsSent++;
+                QueueEvent(new DataSentEventArgs(clientConnection, bytesSent));
             }
             catch (SocketException e)
             {
@@ -256,6 +240,7 @@ namespace MetaMitStandard
         private void DisconnectCallback(IAsyncResult ar)
         {
             ClientConnection clientConnection = (ClientConnection)ar.AsyncState;
+            if (!clientConnection.isActive) return;
             try
             {
                 clientConnection.socket.EndDisconnect(ar);
@@ -279,28 +264,17 @@ namespace MetaMitStandard
                 {
                     if (connections.Remove(clientConnection))
                     {
+                        clientDictionary.TryRemove(clientConnection.guid, out _);
                         QueueEvent(new ClientDisconnectedEventArgs(clientConnection.guid, reason, message));
                     }
                 }
+                clientConnection.Dispose();
             }
-            clientConnection.Dispose();
         }
 
         private bool TryGetClientConnection(Guid guid, out ClientConnection clientConnection)
         {
-            lock (connections)
-            {
-                foreach(ClientConnection client in connections)
-                {
-                    if (client.guid.Equals(guid))
-                    {
-                        clientConnection = client;
-                        return true;
-                    }
-                }
-            }
-            clientConnection = null;
-            return false;
+            return clientDictionary.TryGetValue(guid, out clientConnection);
         }
         #endregion ClientManagement
     }
