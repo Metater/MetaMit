@@ -12,7 +12,8 @@ namespace MetaMitStandard.Client
     {
         Connected,
         Disconnected,
-        DataReceived
+        DataReceived,
+        DataSent
     }
     public class ConnectedEventArgs : ClientEventArgs
     {
@@ -41,6 +42,16 @@ namespace MetaMitStandard.Client
         {
             eventType = ClientEventType.DataReceived;
             this.data = data;
+        }
+    }
+    public class DataSentEventArgs : ClientEventArgs
+    {
+        public int bytesSent;
+
+        public DataSentEventArgs(int bytesSent)
+        {
+            eventType = ClientEventType.DataSent;
+            this.bytesSent = bytesSent;
         }
     }
     public enum DisconnectedReason

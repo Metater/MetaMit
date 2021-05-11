@@ -10,10 +10,11 @@ namespace MetaMitStandard
 {
     public sealed class MetaMitServer : IDisposable
     {
-        public IPEndPoint ep;
-        private int backlog;
+        public IPEndPoint Ep { get; private set; }
+        public int Backlog { get; private set; }
+        public bool ServerOpen { get; private set; } = false;
+
         private Socket listener;
-        private bool serverOpen = false;
 
         private List<ClientConnection> connections = new List<ClientConnection>();
         private ConcurrentQueue<ServerEvent> eventQueue = new ConcurrentQueue<ServerEvent>();
@@ -28,8 +29,8 @@ namespace MetaMitStandard
 
         public MetaMitServer(int port, int backlog)
         {
-            this.backlog = backlog;
-            ep = NetworkUtils.GetEndPoint(NetworkUtils.GetLocalIPv4(), port);
+            Backlog = backlog;
+            Ep = NetworkUtils.GetEndPoint(NetworkUtils.GetLocalIPv4(), port);
             listener = new Socket(AddressFamily.InterNetworkV6, SocketType.Stream, ProtocolType.Tcp);
             listener.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IPv6Only, false);
         }
@@ -39,9 +40,9 @@ namespace MetaMitStandard
         {
             try
             {
-                listener.Bind(ep);
-                listener.Listen(backlog);
-                serverOpen = true;
+                listener.Bind(Ep);
+                listener.Listen(Backlog);
+                ServerOpen = true;
                 listener.BeginAccept(new AsyncCallback(AcceptCallback), listener);
                 QueueEvent(new ServerStartedEventArgs());
             }
@@ -53,7 +54,7 @@ namespace MetaMitStandard
 
         public void Stop()
         {
-            serverOpen = false;
+            ServerOpen = false;
             listener.Close();
         }
 
@@ -164,7 +165,7 @@ namespace MetaMitStandard
         #region Callbacks
         private void AcceptCallback(IAsyncResult ar)
         {
-            if (!serverOpen)
+            if (!ServerOpen)
             {
                 QueueEvent(new ServerStoppedEventArgs(ServerStoppedReason.Requested, "The server has been stopped"));
                 return;
@@ -220,7 +221,7 @@ namespace MetaMitStandard
             }
         }
 
-        private void SendCallback(IAsyncResult ar) // Add events here later
+        private void SendCallback(IAsyncResult ar)
         {
             ClientConnection clientConnection = (ClientConnection)ar.AsyncState;
             if (!clientConnection.isActive) return;

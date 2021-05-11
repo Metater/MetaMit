@@ -5,6 +5,7 @@ using System.Text;
 using System.Net.Sockets;
 using System.Net;
 using MetaMitStandard.Client;
+using MetaMitStandard.Utils;
 
 namespace MetaMitStandard
 {
@@ -17,6 +18,7 @@ namespace MetaMitStandard
         public event EventHandler<ConnectedEventArgs> Connected;
         public event EventHandler<DisconnectedEventArgs> Disconnected;
         public event EventHandler<DataReceivedEventArgs> DataReceived;
+        public event EventHandler<DataSentEventArgs> DataSent;
 
         public MetaMitClient()
         {
@@ -31,22 +33,15 @@ namespace MetaMitStandard
 
         public void Disconnect()
         {
-
+            // Work on later, and things surrounding isActive
         }
 
-        public void Send(byte[] data)
+        public void Send(byte[] data, bool includeOverhead = true)
         {
-            byte[] length = BitConverter.GetBytes((ushort)data.Length);
-            byte[] sessionFlags = BitConverter.GetBytes((ushort)0);
-            byte[] rv = new byte[length.Length + sessionFlags.Length + data.Length];
-            Buffer.BlockCopy(length, 0, rv, 0, length.Length);
-            Buffer.BlockCopy(sessionFlags, 0, rv, length.Length, sessionFlags.Length);
-            Buffer.BlockCopy(data, 0, rv, length.Length + sessionFlags.Length, data.Length);
-            serverConnection.socket.BeginSend(rv, 0, rv.Length, SocketFlags.None, new AsyncCallback(SendCallback), null);
-        }
-        public void SendRaw(byte[] data)
-        {
-            serverConnection.socket.BeginSend(data, 0, data.Length, SocketFlags.None, new AsyncCallback(SendCallback), null);
+            byte[] packedData;
+            if (includeOverhead) packedData = DataPacker.PackData(data, 0);
+            else packedData = data;
+            serverConnection.socket.BeginSend(packedData, 0, packedData.Length, SocketFlags.None, new AsyncCallback(SendCallback), null);
         }
 
         public void PollEvents()
@@ -79,6 +74,9 @@ namespace MetaMitStandard
                 case ClientEventType.DataReceived:
                     DataReceived?.Invoke(this, (DataReceivedEventArgs)clientEvent.clientEventArgs);
                     break;
+                case ClientEventType.DataSent:
+                    DataSent?.Invoke(this, (DataSentEventArgs)clientEvent.clientEventArgs);
+                    break;
             }
         }
 
@@ -87,12 +85,13 @@ namespace MetaMitStandard
             try
             {
                 serverConnection.socket.EndConnect(ar);
+                serverConnection.isActive = true;
                 serverConnection.socket.BeginReceive(serverConnection.buffer, 0, ServerConnection.BufferSize, SocketFlags.None, new AsyncCallback(ReceiveCallback), null);
                 QueueEvent(new ConnectedEventArgs());
             }
             catch (SocketException e)
             {
-                ForceDisconnectServer(DisconnectedReason.ExceptionOnConnect, e.ToString());
+                DisconnectServer(DisconnectedReason.ExceptionOnConnect, e.ToString());
             }
         }
 
@@ -104,19 +103,24 @@ namespace MetaMitStandard
                 if (bytesReceived > 0)
                 {
                     serverConnection.bytesReceived += bytesReceived;
-                    if (serverConnection.dataParser.TryParseData(bytesReceived, serverConnection.buffer, out List<byte[]> parsedData))
+                    if (serverConnection.dataUnpacker.TryParseData(bytesReceived, serverConnection.buffer, out List<byte[]> parsedData))
                     {
                         foreach(byte[] data in parsedData)
                         {
+                            serverConnection.packetsReceived++;
                             QueueEvent(new DataReceivedEventArgs(data));
                         }
                     }
                     serverConnection.socket.BeginReceive(serverConnection.buffer, 0, ServerConnection.BufferSize, SocketFlags.None, new AsyncCallback(ReceiveCallback), null);
                 }
+                else
+                {
+                    DisconnectClient(clientConnection, ClientDisconnectedReason.ExceptionOnReceive, "Bytes received was less than or equal to 0", true);
+                }
             }
             catch (SocketException e)
             {
-                ForceDisconnectServer(DisconnectedReason.ExceptionOnReceive, e.ToString());
+                DisconnectServer(DisconnectedReason.ExceptionOnReceive, e.ToString());
             }
         }
 
@@ -129,11 +133,11 @@ namespace MetaMitStandard
             }
             catch (Exception e)
             {
-                ForceDisconnectServer(DisconnectedReason.ExceptionOnSend, e.ToString());
+                DisconnectServer(DisconnectedReason.ExceptionOnSend, e.ToString());
             }
         }
 
-        private void ForceDisconnectServer(DisconnectedReason reason, string message)
+        private void DisconnectServer(DisconnectedReason reason, string message)
         {
             serverConnection.socket.Close();
             QueueEvent(new DisconnectedEventArgs(reason, message));
