@@ -15,6 +15,7 @@ namespace MetaMitStandard
         public bool ServerOpen { get; private set; } = false;
 
         private Socket listener;
+        private bool canStart = true;
 
         private List<ClientConnection> connections = new List<ClientConnection>();
         private ConcurrentQueue<ServerEvent> eventQueue = new ConcurrentQueue<ServerEvent>();
@@ -36,8 +37,13 @@ namespace MetaMitStandard
         }
 
         #region PublicMethods
+        /// <summary>
+        /// Bind to the port provided and starts listening for connections
+        /// </summary>
         public void Start()
         {
+            if (!canStart) throw new Exception("Tried to restart a MetaMitServer instance!");
+            canStart = false;
             try
             {
                 listener.Bind(Ep);
@@ -51,16 +57,26 @@ namespace MetaMitStandard
                 QueueEvent(new ServerStoppedEventArgs(ServerStoppedReason.Exception, e.ToString()));
             }
         }
-
+        /// <summary>
+        /// Stops the server and disposes it
+        /// </summary>
         public void Stop()
         {
             ServerOpen = false;
             listener.Close();
+            Dispose();
         }
 
         #region Sending
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="clientConnection">The desired</param>
+        /// <param name="data"></param>
+        /// <param name="includeOverhead"></param>
         public void Send(ClientConnection clientConnection, byte[] data, bool includeOverhead = true)
         {
+            if (!clientConnection.isActive) return;
             byte[] packedData;
             if (includeOverhead) packedData = DataPacker.PackData(data, 0);
             else packedData = data;
@@ -102,7 +118,8 @@ namespace MetaMitStandard
 
         public void Disconnect(ClientConnection clientConnection)
         {
-            clientConnection.socket.BeginDisconnect(false, new AsyncCallback(DisconnectCallback), clientConnection);
+            if (clientConnection.isActive)
+                clientConnection.socket.BeginDisconnect(false, new AsyncCallback(DisconnectCallback), clientConnection);
         }
         public void Disconnect(Guid guid)
         {
@@ -185,7 +202,7 @@ namespace MetaMitStandard
             }
             catch (Exception e)
             {
-                DisconnectClient(clientConnection, ClientDisconnectedReason.ExceptionOnAccept, e.ToString(), true);
+                DisconnectClient(clientConnection, ClientDisconnectedReason.ExceptionOnAccept, e.ToString());
             }
             listener.BeginAccept(new AsyncCallback(AcceptCallback), null);
         }
@@ -202,7 +219,11 @@ namespace MetaMitStandard
                     clientConnection.bytesReceived += bytesReceived;
                     if (clientConnection.dataUnpacker.TryUnpackData(bytesReceived, clientConnection.buffer, out List<byte[]> unpackedData, out List<ushort> sessionFlags))
                     {
-                        foreach(byte[] data in unpackedData)
+                        foreach (ushort dataSessionFlags in sessionFlags)
+                        {
+
+                        }
+                        foreach (byte[] data in unpackedData)
                         {
                             clientConnection.packetsReceived++;
                             QueueEvent(new DataReceivedEventArgs(clientConnection, data));
@@ -212,12 +233,12 @@ namespace MetaMitStandard
                 }
                 else
                 {
-                    DisconnectClient(clientConnection, ClientDisconnectedReason.ExceptionOnReceive, "Bytes received was less than or equal to 0", true);
+                    DisconnectClient(clientConnection, ClientDisconnectedReason.ExceptionOnReceive, "Bytes received was less than or equal to 0");
                 }
             }
             catch (SocketException e)
             {
-                DisconnectClient(clientConnection, ClientDisconnectedReason.ExceptionOnReceive, e.ToString(), true);
+                DisconnectClient(clientConnection, ClientDisconnectedReason.ExceptionOnReceive, e.ToString());
             }
         }
 
@@ -234,7 +255,7 @@ namespace MetaMitStandard
             }
             catch (SocketException e)
             {
-                DisconnectClient(clientConnection, ClientDisconnectedReason.ExceptionOnSend, e.ToString(), true);
+                DisconnectClient(clientConnection, ClientDisconnectedReason.ExceptionOnSend, e.ToString());
             }
         }
 
@@ -255,7 +276,7 @@ namespace MetaMitStandard
         #endregion Callbacks
 
         #region ClientManagement
-        private void DisconnectClient(ClientConnection clientConnection, ClientDisconnectedReason reason, string message, bool closeSocket)
+        private void DisconnectClient(ClientConnection clientConnection, ClientDisconnectedReason reason, string message, bool closeSocket = true)
         {
             if (clientConnection.isActive)
             {

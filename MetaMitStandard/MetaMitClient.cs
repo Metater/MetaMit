@@ -22,7 +22,7 @@ namespace MetaMitStandard
 
         public MetaMitClient()
         {
-
+            
         }
 
         public void Connect(IPEndPoint ep)
@@ -33,11 +33,13 @@ namespace MetaMitStandard
 
         public void Disconnect()
         {
-            // Work on later, and things surrounding isActive
+            if (serverConnection.isActive)
+                serverConnection.socket.BeginDisconnect(false, new AsyncCallback(DisconnectCallback), null);
         }
 
         public void Send(byte[] data, bool includeOverhead = true)
         {
+            if (!serverConnection.isActive) return;
             byte[] packedData;
             if (includeOverhead) packedData = DataPacker.PackData(data, 0);
             else packedData = data;
@@ -97,15 +99,20 @@ namespace MetaMitStandard
 
         private void ReceiveCallback(IAsyncResult ar)
         {
+            if (!serverConnection.isActive) return;
             try
             {
                 int bytesReceived = serverConnection.socket.EndReceive(ar);
                 if (bytesReceived > 0)
                 {
                     serverConnection.bytesReceived += bytesReceived;
-                    if (serverConnection.dataUnpacker.TryParseData(bytesReceived, serverConnection.buffer, out List<byte[]> parsedData))
+                    if (serverConnection.dataUnpacker.TryUnpackData(bytesReceived, serverConnection.buffer, out List<byte[]> parsedData, out List<ushort> sessionFlags))
                     {
-                        foreach(byte[] data in parsedData)
+                        foreach (ushort dataSessionFlags in sessionFlags)
+                        {
+
+                        }
+                        foreach (byte[] data in parsedData)
                         {
                             serverConnection.packetsReceived++;
                             QueueEvent(new DataReceivedEventArgs(data));
@@ -115,7 +122,7 @@ namespace MetaMitStandard
                 }
                 else
                 {
-                    DisconnectClient(clientConnection, ClientDisconnectedReason.ExceptionOnReceive, "Bytes received was less than or equal to 0", true);
+                    DisconnectServer(DisconnectedReason.ExceptionOnReceive, "Bytes received was less than or equal to 0");
                 }
             }
             catch (SocketException e)
@@ -126,10 +133,13 @@ namespace MetaMitStandard
 
         private void SendCallback(IAsyncResult ar) // Add events here later
         {
+            if (!serverConnection.isActive) return;
             try
             {
                 int bytesSent = serverConnection.socket.EndSend(ar);
                 serverConnection.bytesSent += bytesSent;
+                serverConnection.packetsSent++;
+                QueueEvent(new DataSentEventArgs(bytesSent));
             }
             catch (Exception e)
             {
@@ -137,10 +147,29 @@ namespace MetaMitStandard
             }
         }
 
-        private void DisconnectServer(DisconnectedReason reason, string message)
+        private void DisconnectCallback(IAsyncResult ar)
         {
-            serverConnection.socket.Close();
-            QueueEvent(new DisconnectedEventArgs(reason, message));
+            if (!serverConnection.isActive) return;
+            try
+            {
+                serverConnection.socket.EndDisconnect(ar);
+            }
+            catch (SocketException)
+            {
+
+            }
+            DisconnectServer(DisconnectedReason.Requested, "A client properly disconnected", false);
+        }
+
+        private void DisconnectServer(DisconnectedReason reason, string message, bool closeSocket = true)
+        {
+            if (serverConnection.isActive)
+            {
+                serverConnection.isActive = false;
+                if (closeSocket) serverConnection.socket.Close();
+                QueueEvent(new DisconnectedEventArgs(reason, message));
+                serverConnection.Dispose();
+            }
         }
     }
 }

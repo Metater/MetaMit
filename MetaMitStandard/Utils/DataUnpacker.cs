@@ -1,95 +1,77 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
-using System.Data;
 using System.Linq;
 
 namespace MetaMitStandard.Utils
 {
     public class DataUnpacker
     {
-        private List<byte[]> packetSegments = new List<byte[]>();
-        private int packetSegmentsCount => packetSegments.Count;
-        private ushort packetLength = 0;
-        private ushort packetSessionFlags = 0;
-        private int packetBytesReceived = 0;
-        private int previousBytesReceived = 0;
+        private List<byte[]> dataSegments = new List<byte[]>();
+        private ushort dataLength = 0;
+        private int unreadData = -1;
+        private byte[] overheadCarryover = new byte[3];
+        private int overheadBytes = 0;
 
-        private const int OverheadBytes = 4;
-        private const int SessionFlagsCount = 2;
-
-        public event Action<List<SessionFlag>> SessionFlagsFound;
-
-        public bool TryParseData(int bytesReceived, byte[] data, out List<byte[]> parsedData)
+        public bool TryUnpackData(int bytesReceived, byte[] data, out List<byte[]> unpackedData, out List<ushort> sessionFlags)
         {
-            parsedData = new List<byte[]>();
-            bool allDataParsed = false;
-            int dataStartIndex = 0;
-            while (!allDataParsed)
+            if (overheadBytes > 0)
             {
-                bool isNewPacket = packetSegmentsCount == 0;
-                if (isNewPacket) // New packet
+                byte[] concatData = new byte[data.Length + overheadBytes];
+                Buffer.BlockCopy(overheadCarryover, 0, concatData, 0, overheadBytes);
+                Buffer.BlockCopy(data, 0, concatData, overheadBytes, data.Length);
+                data = concatData;
+                bytesReceived += overheadBytes;
+                overheadBytes = 0;
+            }
+
+            int unreadBufferData = bytesReceived;
+            unpackedData = new List<byte[]>();
+            sessionFlags = new List<ushort>();
+
+            while (unreadBufferData > 0) // Done reading entire buffer
+            {
+                if (unreadData == -1) // Ready to start reading a new packet
                 {
-                    // Need to make new packet more flexible
-                    packetLength = BitConverter.ToUInt16(data, dataStartIndex);
-                    packetSessionFlags = BitConverter.ToUInt16(data, dataStartIndex + 2);
-                    if (packetSessionFlags > 0)
+                    if (unreadBufferData > 3)
                     {
-                        List<SessionFlag> foundSessionFlags = new List<SessionFlag>();
-                        for (int i = 0; i < SessionFlagsCount; i++)
-                        {
-                            if (GetBit(packetSessionFlags, i))
-                            {
-                                SessionFlag foundSessionFlag = (SessionFlag)i;
-                            }
-                        }
-                        SessionFlagsFound?.Invoke(foundSessionFlags);
+                        dataLength = BitConverter.ToUInt16(data, bytesReceived - unreadBufferData);
+                        unreadBufferData -= 2;
+                        ushort dataSessionFlags = BitConverter.ToUInt16(data, bytesReceived - unreadBufferData);
+                        unreadBufferData -= 2;
+                        if (dataSessionFlags > 0) sessionFlags.Add(dataSessionFlags);
+
+                        unreadData = dataLength;
                     }
-                    int accessibleDataCount = Math.Min(packetLength, (data.Length - dataStartIndex) - OverheadBytes);
-                    byte[] accessibleData = new byte[accessibleDataCount];
-                    Buffer.BlockCopy(data, dataStartIndex + OverheadBytes, accessibleData, 0, accessibleDataCount);
-                    packetBytesReceived += accessibleDataCount;
-                    packetSegments.Add(accessibleData);
-                    dataStartIndex += packetBytesReceived + OverheadBytes;
+                    else
+                    {
+                        overheadBytes = unreadBufferData;
+                        Buffer.BlockCopy(data, bytesReceived - unreadBufferData, overheadCarryover, 0, overheadBytes);
+                        break;
+                    }
                 }
-                else // Old packet
+
+                int readableData = Math.Min(unreadData, unreadBufferData);
+                byte[] dataSegment = new byte[readableData];
+                Buffer.BlockCopy(data, bytesReceived - unreadBufferData, dataSegment, 0, readableData);
+                dataSegments.Add(dataSegment);
+                unreadBufferData -= readableData;
+                unreadData -= readableData;
+
+                if (unreadData == 0) // Done reading a packet
                 {
-                    int accessibleDataCount = (packetLength - (data.Length * (packetSegmentsCount - 1)))-packetBytesReceived;
-                    //int accessibleDataCount = Math.Min((packetLength - (data.Length * (packetSegmentsCount-1)))-packetBytesReceived, data.Length - dataStartIndex);
-                    byte[] accessibleData = new byte[accessibleDataCount];
-                    Buffer.BlockCopy(data, dataStartIndex, accessibleData, 0, accessibleDataCount);
-                    previousBytesReceived += packetBytesReceived;
-                    packetBytesReceived += accessibleDataCount;
-                    packetSegments.Add(accessibleData);
-                    dataStartIndex += packetBytesReceived;
-                }
-                if ((packetBytesReceived == packetLength && isNewPacket) || (packetBytesReceived + OverheadBytes == packetLength + previousBytesReceived && !isNewPacket))
-                {   
-                    parsedData.Add(CombineSegments());
-                    previousBytesReceived = 0;
-                }
-                // ADD: If overhead split carry over data to next
-                if (dataStartIndex >= bytesReceived)
-                {
-                    allDataParsed = true;
+                    unpackedData.Add(CombineSegments());
+                    dataSegments.Clear();
+                    unreadData = -1;
                 }
             }
-            return parsedData.Count != 0;
-        }
 
-        public bool GetSessionFlag(SessionFlag sessionFlag)
-        {
-            return GetBit(packetSessionFlags, (int)sessionFlag);
-        }
-
-        private bool GetBit(ushort sessionFlags, int index)
-        {
-            return ((sessionFlags >> index) & 1) != 0;
+            return unpackedData.Count != 0;
         }
 
         private byte[] CombineSegments()
         {
-            byte[][] arrays = packetSegments.ToArray();
+            byte[][] arrays = dataSegments.ToArray();
             byte[] combinedArray = new byte[arrays.Sum(a => a.Length)];
             int offset = 0;
             foreach (byte[] array in arrays)
@@ -97,21 +79,7 @@ namespace MetaMitStandard.Utils
                 Buffer.BlockCopy(array, 0, combinedArray, offset, array.Length);
                 offset += array.Length;
             }
-            Reset();
             return combinedArray.ToArray();
         }
-
-        private void Reset()
-        {
-            packetSegments.Clear();
-            packetBytesReceived = 0;
-            packetLength = 0;
-        }
-    }
-
-    public enum SessionFlag
-    {
-        RequestDisconnect,
-        OkayDisconnect
     }
 }
