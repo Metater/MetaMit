@@ -11,7 +11,7 @@ namespace MetaMitStandard
 {
     public sealed class MetaMitClient
     {
-        private ServerConnection serverConnection = new ServerConnection();
+        private ServerConnection serverConnection;
 
         private ConcurrentQueue<ClientEvent> eventQueue = new ConcurrentQueue<ClientEvent>();
 
@@ -20,21 +20,65 @@ namespace MetaMitStandard
         public event EventHandler<DataReceivedEventArgs> DataReceived;
         public event EventHandler<DataSentEventArgs> DataSent;
 
-        public MetaMitClient()
+        public MetaMitClient(bool enableNagle = true)
         {
-            
+            // Think about how to better handler socket options that may want to be conntrolled
+            //https://docs.microsoft.com/en-us/dotnet/api/system.net.sockets.socket.nodelay?view=net-5.0
+            //https://docs.microsoft.com/en-us/dotnet/csharp/programming-guide/xmldoc/recommended-tags-for-documentation-comments
         }
 
+        /// <summary>
+        /// Connect to a remote endpoint formed by the provided ip and port
+        /// </summary>
+        /// <remarks>
+        /// If an endpoint cannot be formed, a disconnect event will be invoked without a connect event
+        /// </remarks>
+        /// <param name="ip">The ip of the remote endpoint</param>
+        /// <param name="port">The port of the remote endpoint</param>
+        public void Connect(string ip, int port)
+        {
+            try
+            {
+                IPEndPoint ep = NetworkUtils.GetEndPoint(ip, port);
+                Connect(ep);
+            }
+            catch (Exception)
+            {
+                QueueEvent(new DisconnectedEventArgs(DisconnectedReason.ExceptionOnConnect, $"Failed to form endpoint from ip: {ip} and port: {port} that were given"));
+            }
+        }
+        /// <summary>
+        /// Connect to a remote endpoint
+        /// </summary>
+        /// <remarks>
+        /// If a connection fails, a disconnect event will be invoked without a connect event
+        /// </remarks>
+        /// <param name="ep">The remote endpoint to connect to</param>
         public void Connect(IPEndPoint ep)
         {
-            serverConnection.socket = new Socket(ep.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-            serverConnection.socket.BeginConnect(ep, new AsyncCallback(ConnectCallback), null);
+            serverConnection = new ServerConnection
+            {
+                socket = new Socket(ep.AddressFamily, SocketType.Stream, ProtocolType.Tcp)
+            };
+            try
+            {
+                serverConnection.socket.BeginConnect(ep, new AsyncCallback(ConnectCallback), null);
+            }
+            catch (Exception e)
+            {
+                DisconnectServer(DisconnectedReason.ExceptionOnConnect, e.ToString(), false, true);
+            }
         }
 
         public void Disconnect()
         {
             if (serverConnection.isActive)
                 serverConnection.socket.BeginDisconnect(false, new AsyncCallback(DisconnectCallback), null);
+        }
+
+        public void Reconnect(IPEndPoint ep)
+        {
+
         }
 
         public void Send(byte[] data, bool includeOverhead = true)
@@ -161,9 +205,9 @@ namespace MetaMitStandard
             DisconnectServer(DisconnectedReason.Requested, "A client properly disconnected", false);
         }
 
-        private void DisconnectServer(DisconnectedReason reason, string message, bool closeSocket = true)
+        private void DisconnectServer(DisconnectedReason reason, string message, bool closeSocket = true, bool ignoreIsActive = false)
         {
-            if (serverConnection.isActive)
+            if (serverConnection.isActive || ignoreIsActive)
             {
                 serverConnection.isActive = false;
                 if (closeSocket) serverConnection.socket.Close();
