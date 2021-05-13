@@ -14,6 +14,10 @@ namespace MetaMitStandard.Utils
             IPAddress ipAddress = ipHostInfo.AddressList[0];
             return ipAddress;
         }
+        public static IPEndPoint GetEndPoint(string ipAddress, int port)
+        {
+            return new IPEndPoint(IPAddress.Parse(ipAddress), port);
+        }
         public static IPEndPoint GetEndPoint(IPAddress ipAddress, int port)
         {
             return new IPEndPoint(ipAddress, port);
