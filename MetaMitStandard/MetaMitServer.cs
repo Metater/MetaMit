@@ -69,11 +69,11 @@ namespace MetaMitStandard
 
         #region Sending
         /// <summary>
-        /// 
+        /// Send data to a connected client
         /// </summary>
-        /// <param name="clientConnection">The desired</param>
-        /// <param name="data"></param>
-        /// <param name="includeOverhead"></param>
+        /// <param name="clientConnection">Client connection to send data to</param>
+        /// <param name="data">Data to send</param>
+        /// <param name="includeOverhead">Include packet overhead, essential if not in data already, if that don't use</param>
         public void Send(ClientConnection clientConnection, byte[] data, bool includeOverhead = true)
         {
             if (!clientConnection.isActive) return;
@@ -82,6 +82,12 @@ namespace MetaMitStandard
             else packedData = data;
             clientConnection.socket.BeginSend(packedData, 0, packedData.Length, SocketFlags.None, new AsyncCallback(SendCallback), clientConnection);
         }
+        /// <summary>
+        /// Send data to a connected client with their Guid
+        /// </summary>
+        /// <param name="guid">Guid of client that will refer to a client connection</param>
+        /// <param name="data">Data to send</param>
+        /// <param name="includeOverhead">Include packet overhead, essential if not in data already, if that don't use</param>
         public void Send(Guid guid, byte[] data, bool includeOverhead = true)
         {
             if (TryGetClientConnection(guid, out ClientConnection clientConnection))
@@ -90,12 +96,21 @@ namespace MetaMitStandard
             }
         }
 
+        /// <summary>
+        /// Broadcast data to all connected clients
+        /// </summary>
+        /// <param name="data">Data to send to all clients</param>
         public void Broadcast(byte[] data)
         {
             List<ClientConnection> cachedConnections = (List<ClientConnection>)clientDictionary.Keys;
             foreach (ClientConnection connection in cachedConnections)
                 Send(connection, data);
         }
+        /// <summary>
+        /// Broadcast data to all connected clients with a supplied function allowing or denying a send
+        /// </summary>
+        /// <param name="data">Data to send to all clients that the function allows</param>
+        /// <param name="shouldSend">A supplied function that decides if a client should be sent data, called once per client</param>
         public void Broadcast(byte[] data, Func<ClientConnection, bool> shouldSend)
         {
             List<ClientConnection> cachedConnections = (List<ClientConnection>)clientDictionary.Keys;
@@ -103,10 +118,20 @@ namespace MetaMitStandard
                 if (shouldSend(connection))
                     Send(connection, data);
         }
+        /// <summary>
+        /// Broadcast data to all connected clients but one client connection
+        /// </summary>
+        /// <param name="skipConnection">The client connection that is not being broadcasted to</param>
+        /// <param name="data">Data to send to all clients except the client that is skipped</param>
         public void BroadcastToBut(ClientConnection skipConnection, byte[] data)
         {
             Broadcast(data, (connection) => { return connection != skipConnection; });
         }
+        /// <summary>
+        /// Broadcast data to all connected clients but one client connction refered to by it's Guid
+        /// </summary>
+        /// <param name="guid">Guid of client that will refer to the client connection that is being skipped</param>
+        /// <param name="data">Data to send to all of the clients except the client referred to by it's Guid</param>
         public void BroadcastToBut(Guid guid, byte[] data)
         {
             if (TryGetClientConnection(guid, out ClientConnection skipConnection))
@@ -116,11 +141,19 @@ namespace MetaMitStandard
         }
         #endregion Sending
 
+        /// <summary>
+        /// Disconnect a connected client
+        /// </summary>
+        /// <param name="clientConnection">The client being disconnected</param>
         public void Disconnect(ClientConnection clientConnection)
         {
             if (clientConnection.isActive)
                 clientConnection.socket.BeginDisconnect(false, new AsyncCallback(DisconnectCallback), clientConnection);
         }
+        /// <summary>
+        /// Disconnect a connected client refered to by it's Guid
+        /// </summary>
+        /// <param name="guid">Guid of the client that will be disconnected</param>
         public void Disconnect(Guid guid)
         {
             if (TryGetClientConnection(guid, out ClientConnection clientConnection))
@@ -129,6 +162,9 @@ namespace MetaMitStandard
             }
         }
 
+        /// <summary>
+        /// Polls all of the events in the event queue, call frequently, at least every 15ms
+        /// </summary>
         public void PollEvents()
         {
             int queuedEventsCount = eventQueue.Count;
@@ -141,6 +177,9 @@ namespace MetaMitStandard
             }
         }
 
+        /// <summary>
+        /// Disposes the listening socket and disposes the MetaMitServer instance
+        /// </summary>
         public void Dispose()
         {
             listener.Dispose();
