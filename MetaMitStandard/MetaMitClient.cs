@@ -20,7 +20,7 @@ namespace MetaMitStandard
         public event EventHandler<DataReceivedEventArgs> DataReceived;
         public event EventHandler<DataSentEventArgs> DataSent;
 
-        public MetaMitClient(bool enableNagle = true)
+        public MetaMitClient()
         {
             // Think about how to better handler socket options that may want to be conntrolled
             //https://docs.microsoft.com/en-us/dotnet/api/system.net.sockets.socket.nodelay?view=net-5.0
@@ -35,8 +35,9 @@ namespace MetaMitStandard
         /// </remarks>
         /// <param name="ip">The ip of the remote endpoint</param>
         /// <param name="port">The port of the remote endpoint</param>
-        public void Connect(string ip, int port)
+        public void Connect(string ip, int port, Func<Socket> setSocketOptions = null)
         {
+            if (serverConnection.isActive) return;
             try
             {
                 IPEndPoint ep = NetworkUtils.GetEndPoint(ip, port);
@@ -54,12 +55,20 @@ namespace MetaMitStandard
         /// If a connection fails, a disconnect event will be invoked without a connect event
         /// </remarks>
         /// <param name="ep">The remote endpoint to connect to</param>
-        public void Connect(IPEndPoint ep)
+        public void Connect(IPEndPoint ep, List<(SocketOptionLevel, SocketOptionName, bool)> setSocketOptions = null)
         {
+            if (serverConnection.isActive) return;
             serverConnection = new ServerConnection
             {
                 socket = new Socket(ep.AddressFamily, SocketType.Stream, ProtocolType.Tcp)
             };
+            if (setSocketOptions != null)
+            {
+                foreach((SocketOptionLevel, SocketOptionName, bool) setSocketOption in setSocketOptions)
+                {
+                    serverConnection.socket.SetSocketOption(setSocketOption.Item1, setSocketOption.Item2, setSocketOption.Item3);
+                }
+            }
             try
             {
                 serverConnection.socket.BeginConnect(ep, new AsyncCallback(ConnectCallback), null);
@@ -74,11 +83,6 @@ namespace MetaMitStandard
         {
             if (serverConnection.isActive)
                 serverConnection.socket.BeginDisconnect(false, new AsyncCallback(DisconnectCallback), null);
-        }
-
-        public void Reconnect(IPEndPoint ep)
-        {
-
         }
 
         public void Send(byte[] data, bool includeOverhead = true)
@@ -175,7 +179,7 @@ namespace MetaMitStandard
             }
         }
 
-        private void SendCallback(IAsyncResult ar) // Add events here later
+        private void SendCallback(IAsyncResult ar)
         {
             if (!serverConnection.isActive) return;
             try
