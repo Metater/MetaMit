@@ -94,6 +94,9 @@ namespace MetaMitStandard
             serverConnection.socket.BeginSend(packedData, 0, packedData.Length, SocketFlags.None, new AsyncCallback(SendCallback), null);
         }
 
+        /// <summary>
+        /// Polls all of the events in the event queue, call frequently, at least every 15ms
+        /// </summary>
         public void PollEvents()
         {
             int queuedEventsCount = eventQueue.Count;
