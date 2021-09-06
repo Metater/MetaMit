@@ -5,7 +5,7 @@ using System.Linq;
 
 namespace MetaMitStandard.Utils
 {
-    public class DataUnpacker
+    public class DataUnpackerNew
     {
         private List<byte[]> dataSegments = new List<byte[]>();
         private int dataLength = 0;

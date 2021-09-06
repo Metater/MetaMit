@@ -37,7 +37,7 @@ namespace MetaMitStandard
         /// <param name="port">The port of the remote endpoint</param>
         public void Connect(string ip, int port, Func<Socket> setSocketOptions = null)
         {
-            if (serverConnection.isActive) return;
+            if (serverConnection != null) if (serverConnection.isActive) return;
             try
             {
                 IPEndPoint ep = NetworkUtils.GetEndPoint(ip, port);
@@ -57,7 +57,7 @@ namespace MetaMitStandard
         /// <param name="ep">The remote endpoint to connect to</param>
         public void Connect(IPEndPoint ep, List<(SocketOptionLevel, SocketOptionName, bool)> setSocketOptions = null)
         {
-            if (serverConnection.isActive) return;
+            if (serverConnection != null) if (serverConnection.isActive) return;
             serverConnection = new ServerConnection
             {
                 socket = new Socket(ep.AddressFamily, SocketType.Stream, ProtocolType.Tcp)

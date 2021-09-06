@@ -6,7 +6,7 @@ using System.Linq;
 
 namespace MetaMitStandard.Utils
 {
-    public class DataUnpackerOld
+    public class DataUnpackerSuperOld
     {
         private List<byte[]> packetSegments = new List<byte[]>();
         private int packetSegmentsCount => packetSegments.Count;

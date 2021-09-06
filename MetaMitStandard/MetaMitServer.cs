@@ -28,10 +28,11 @@ namespace MetaMitStandard
         public event EventHandler<ServerStartedEventArgs> ServerStarted;
         public event EventHandler<ServerStoppedEventArgs> ServerStopped;
 
-        public MetaMitServer(int port, int backlog)
+        public MetaMitServer(int port, int backlog, IPAddress hostIP = null)
         {
             Backlog = backlog;
-            Ep = NetworkUtils.GetEndPoint(NetworkUtils.GetLocalIPv4(), port);
+            if (hostIP == null) hostIP = NetworkUtils.GetLocalIPv4();
+            Ep = NetworkUtils.GetEndPoint(hostIP, port);
             listener = new Socket(AddressFamily.InterNetworkV6, SocketType.Stream, ProtocolType.Tcp);
             listener.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IPv6Only, false);
         }

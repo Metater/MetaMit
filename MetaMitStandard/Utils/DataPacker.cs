@@ -8,7 +8,7 @@ namespace MetaMitStandard.Utils
     {
         public static byte[] PackData(byte[] data, ushort dataSessionFlags)
         {
-            byte[] length = BitConverter.GetBytes((ushort)data.Length);
+            byte[] length = BitConverter.GetBytes(data.Length);
             byte[] sessionFlags = BitConverter.GetBytes(dataSessionFlags);
             byte[] packedData = new byte[length.Length + sessionFlags.Length + data.Length];
             Buffer.BlockCopy(length, 0, packedData, 0, length.Length);
