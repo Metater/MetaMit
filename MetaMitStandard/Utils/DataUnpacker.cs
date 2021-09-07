@@ -10,7 +10,7 @@ namespace MetaMitStandard.Utils
         private List<byte[]> dataSegments = new List<byte[]>();
         private int dataLength = 0;
         private int unreadData = -1;
-        private byte[] overheadCarryover = new byte[3];
+        private byte[] overheadCarryover = new byte[5];
         private int overheadBytes = 0;
 
         public bool TryUnpackData(int bytesReceived, byte[] data, out List<byte[]> unpackedData, out List<ushort> sessionFlags)
