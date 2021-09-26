@@ -9,5 +9,7 @@ namespace MetaMitPlus
         //private SessionOptions sessionOptions;
 
         // move send options to seaparte class
+
+        // Client event for failed to connect
     }
 }

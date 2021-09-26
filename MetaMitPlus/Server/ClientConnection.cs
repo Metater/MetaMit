@@ -82,10 +82,9 @@ namespace MetaMitPlus.Server
             Send(data, hasSessionFlags, sessionFlags);
         }
 
-        public void Disconnect(bool sendDisconnectMessage = true)
+        public void Disconnect()
         {
             if (!IsActive) return;
-            // Send disconnect message
             socket.BeginDisconnect(false, new AsyncCallback(server.DisconnectCallback), this);
         }
 
@@ -111,16 +110,8 @@ namespace MetaMitPlus.Server
         internal enum EncryptionPhase
         {
             None,
-            SentRSAPublicKey, // Kick if client lingers on this
+            SentRSAPublicKey,
             Encrypted
-        }
-
-        public enum SendOptions
-        {
-            Normal,
-            Encrypted,
-            Compressed,
-            EncryptedAndCompressed
         }
     }
 }

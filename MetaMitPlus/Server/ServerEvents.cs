@@ -102,7 +102,6 @@ namespace MetaMitPlus.Server
     public enum ClientDisconnectedReason
     {
         Requested,
-        ClientRequested,
         EncryptionTimeout,
         ReceivePolicyViolation,
         ProtocolViolation,

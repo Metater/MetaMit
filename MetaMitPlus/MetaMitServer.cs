@@ -23,14 +23,14 @@ namespace MetaMitPlus
         public ReceivePolicy serverReceivePolicy = new ReceivePolicy(ReceivePolicy.EncryptionPolicy.Dual, ReceivePolicy.CompressionPolicy.Dual);
         public SendPolicy serverSendPolicy = new SendPolicy(true, 65536);
 
-        internal Socket listener;
+        private Socket listener;
 
-        internal bool isLocalEpNull => LocalEP == null;
-        internal bool isListenerNull => listener == null;
+        private bool isLocalEpNull => LocalEP == null;
+        private bool isListenerNull => listener == null;
 
-        internal List<ClientConnection> connections = new List<ClientConnection>();
-        internal ConcurrentQueue<ServerEventArgs> queuedEvents = new ConcurrentQueue<ServerEventArgs>();
-        internal ConcurrentDictionary<Guid, ClientConnection> clientDictionary = new ConcurrentDictionary<Guid, ClientConnection>();
+        private List<ClientConnection> connections = new List<ClientConnection>();
+        private ConcurrentQueue<ServerEventArgs> queuedEvents = new ConcurrentQueue<ServerEventArgs>();
+        private ConcurrentDictionary<Guid, ClientConnection> clientDictionary = new ConcurrentDictionary<Guid, ClientConnection>();
         internal ConcurrentQueue<ClientConnection> encryptingClients = new ConcurrentQueue<ClientConnection>();
 
         public event EventHandler<ClientConnectedEventArgs> ClientConnected;
@@ -45,22 +45,40 @@ namespace MetaMitPlus
 
         #region Construction
         internal MetaMitServer() { }
+        /// <summary>
+        /// Creates new instance of MetaMitServer
+        /// </summary>
+        /// <returns>New instance of MetaMitServer</returns>
         public static MetaMitServer NewServer()
         {
             return new MetaMitServer();
         }
+        /// <summary>
+        /// Gives the default listening socket for the server, useful for setting your own socket options
+        /// </summary>
+        /// <returns>Default listening socket for the server</returns>
         public static Socket GetDefaultListenerSocket()
         {
             Socket listenerSocket = new Socket(AddressFamily.InterNetworkV6, SocketType.Stream, ProtocolType.Tcp);
             listenerSocket.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IPv6Only, false);
             return listenerSocket;
         }
+        /// <summary>
+        /// Forms the local endpoint for the server with the provided port and the privided local ip to use
+        /// </summary>
+        /// <param name="port">The port the listening socket will bind to</param>
+        /// <param name="localIp">The local IP of the server</param>
         public MetaMitServer SetLocalEndpoint(int port, IPAddress localIp)
         {
             if (Listening) throw new Exception("Cannot set LocalEP, Server listening");
             LocalEP = NetworkUtils.GetEndPoint(localIp, port);
             return this;
         }
+        /// <summary>
+        /// Forms the local endpoint for the server with the provided port and parses the privided local ip to use
+        /// </summary>
+        /// <param name="port">The port the listening socket will bind to</param>
+        /// <param name="localIp">The local IP of the server, is a string</param>
         public MetaMitServer SetLocalEndpoint(int port, string localIp)
         {
             if (IPAddress.TryParse(localIp, out IPAddress outLocalIp))
@@ -69,34 +87,54 @@ namespace MetaMitPlus
                 throw new Exception($"Unable to parse provided local IP: {localIp}");
             return this;
         }
+        /// <summary>
+        /// Forms the local endpoint for the server with the default local IPv4 and the provided port
+        /// </summary>
+        /// <param name="port">The port the listening socket will bind to</param>
         public MetaMitServer SetLocalEndpoint(int port)
         {
             SetLocalEndpoint(port, NetworkUtils.GetLocalIPv4());
             return this;
         }
 
+        /// <summary>
+        /// Sets the socket the server listens on
+        /// </summary>
+        /// <param name="listenerSocket">Socket the server listens on</param>
         public MetaMitServer SetListenerSocket(Socket listenerSocket)
         {
-            if (Listening) throw new Exception("Cannot listener socket, Server listening");
+            if (Listening) throw new Exception("Cannot change listener socket, Server listening");
             listener = listenerSocket;
             return this;
         }
 
+        /// <summary>
+        /// Sets the defualt server receive policy
+        /// </summary>
+        /// <param name="serverReceivePolicy">Default server receive policy</param>
         public MetaMitServer SetReceivePolicy(ReceivePolicy serverReceivePolicy)
         {
             this.serverReceivePolicy = serverReceivePolicy;
             return this;
         }
+        /// <summary>
+        /// Sets the defualt server send policy
+        /// </summary>
+        /// <param name="serverSendPolicy">Default server send policy</param>
         public MetaMitServer SetSendPolicy(SendPolicy serverSendPolicy)
         {
             this.serverSendPolicy = serverSendPolicy;
             return this;
         }
 
-        public MetaMitServer SetEncryptionInitiationTimeout(int timeoutMilliseconds)
+        /// <summary>
+        /// Sets the encryption initiation timeout, in milliseconds
+        /// </summary>
+        /// <param name="encryptionInitiationTimeout">Encryption initiation timeout in milliseconds</param>
+        public MetaMitServer SetEncryptionInitiationTimeout(int encryptionInitiationTimeout)
         {
             if (Listening) throw new Exception("Server listening");
-            EncryptionInitiationTimeout = timeoutMilliseconds;
+            EncryptionInitiationTimeout = encryptionInitiationTimeout;
             return this;
         }
         #endregion Construction
@@ -135,11 +173,52 @@ namespace MetaMitPlus
             Dispose();
         }
 
-        public void Send(Guid guid, byte[] data)
+        /// <summary>
+        /// Send data to a connected client with their Guid
+        /// </summary>
+        /// <param name="guid">Guid of client that will refer to a client connection</param>
+        /// <param name="data">Data to send</param>
+        /// <param name="sendOptions">Options for how data will be prepared to send</param>
+        public void Send(Guid guid, byte[] data, SendOptions sendOptions)
         {
             if (TryGetClientConnection(guid, out ClientConnection clientConnection))
             {
                 clientConnection.Send(data);
+            }
+        }
+
+        /// <summary>
+        /// Broadcast data to all connected clients with a supplied function allowing or denying a send
+        /// </summary>
+        /// <param name="data">Data to send to all clients that the function allows</param>
+        /// <param name="shouldSend">A supplied function that decides if a client should be sent data, called once per client</param>
+        /// <param name="sendOptions">Options for how data will be prepared to send</param>
+        public void Broadcast(byte[] data, Func<ClientConnection, bool> shouldSend, SendOptions sendOptions)
+        {
+            List<ClientConnection> cachedConnections = (List<ClientConnection>)clientDictionary.Keys;
+            foreach (ClientConnection connection in cachedConnections)
+                if (shouldSend(connection))
+                    connection.Send(data, sendOptions);
+        }
+        /// <summary>
+        /// Broadcast data to all connected clients
+        /// </summary>
+        /// <param name="data">Data to send to all clients</param>
+        /// <param name="sendOptions">Options for how data will be prepared to send</param>
+        public void Broadcast(byte[] data, SendOptions sendOptions)
+        {
+            Broadcast(data, (_) => { return true; }, sendOptions);
+        }
+
+        /// <summary>
+        /// Disconnect a connected client refered to by it's Guid
+        /// </summary>
+        /// <param name="guid">Guid of the client that will be disconnected</param>
+        public void Disconnect(Guid guid)
+        {
+            if (TryGetClientConnection(guid, out ClientConnection clientConnection))
+            {
+                clientConnection.Disconnect();
             }
         }
 
@@ -331,31 +410,29 @@ namespace MetaMitPlus
                     QueueEvent(new ClientEncryptedEventArgs(clientConnection));
                     return;
                 }
-                else if (data.sessionFlag == 4) // Client requested disconnect
-                {
-                    DisconnectClient(clientConnection, ClientDisconnectedReason.ClientRequested, $"Client requested disconnect");
-                    return;
-                }
                 else
                 {
                     DisconnectClient(clientConnection, ClientDisconnectedReason.ProtocolViolation, $"Client used unknown sessionFlag: {data.sessionFlag}");
                     return;
                 }
                 
-                if (clientConnection.receivePolicy.encryptionPolicy == ReceivePolicy.EncryptionPolicy.Yes)
+                if (data.sessionFlag != 3)
                 {
-                    if (data.sessionFlag != 0 || data.sessionFlag != 2)
+                    if (clientConnection.receivePolicy.encryptionPolicy == ReceivePolicy.EncryptionPolicy.Yes)
                     {
-                        DisconnectClient(clientConnection, ClientDisconnectedReason.ReceivePolicyViolation, $"Client not using encryption, requested in receive policy");
-                        return;
+                        if (data.sessionFlag != 0 || data.sessionFlag != 2)
+                        {
+                            DisconnectClient(clientConnection, ClientDisconnectedReason.ReceivePolicyViolation, $"Client not using encryption, requested in receive policy");
+                            return;
+                        }
                     }
-                }
-                if (clientConnection.receivePolicy.compressionPolicy == ReceivePolicy.CompressionPolicy.Yes)
-                {
-                    if (data.sessionFlag != 1 || data.sessionFlag != 2)
+                    if (clientConnection.receivePolicy.compressionPolicy == ReceivePolicy.CompressionPolicy.Yes)
                     {
-                        DisconnectClient(clientConnection, ClientDisconnectedReason.ReceivePolicyViolation, $"Client not using compression, requested in receive policy");
-                        return;
+                        if (data.sessionFlag != 1 || data.sessionFlag != 2)
+                        {
+                            DisconnectClient(clientConnection, ClientDisconnectedReason.ReceivePolicyViolation, $"Client not using compression, requested in receive policy");
+                            return;
+                        }
                     }
                 }
             }
