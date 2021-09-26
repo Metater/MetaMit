@@ -22,15 +22,15 @@ namespace MetaMit.Client.Base
         public byte[] buffer = new byte[BufferSize];
         public StringBuilder sb = new StringBuilder();
         // Events
-        public event Action OnServerStart;
-        public event Action OnServerStop;
+        //public event Action OnServerStart;
+        //public event Action OnServerStop;
 
-        public event Action OnServerConnectionRejected;
+        //public event Action OnServerConnectionRejected;
 
         public event EventHandler<MetaMitClientBaseEventArgs.ServerConnectionPending> OnServerConnectionPending;
         public event EventHandler<MetaMitClientBaseEventArgs.ServerConnectionAccepted> OnServerConnectionAccepted;
         public event EventHandler<MetaMitClientBaseEventArgs.ServerConnectionFailed> OnServerConnectionFailed;
-        public event EventHandler<MetaMitClientBaseEventArgs.ServerConnectionEnded> OnServerConnectionEnded;
+        //public event EventHandler<MetaMitClientBaseEventArgs.ServerConnectionEnded> OnServerConnectionEnded;
         public event EventHandler<MetaMitClientBaseEventArgs.ServerConnectionLost> OnServerConnectionLost;
 
         public event EventHandler<MetaMitClientBaseEventArgs.DataReceived> OnDataReceived;

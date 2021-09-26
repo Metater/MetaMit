@@ -11,10 +11,11 @@ namespace MetaMitPlus.Utils
 
         private List<byte[]> dataSegments = new List<byte[]>();
         private int unreadData = -1;
+        private UnpackedData currentData = new UnpackedData();
         private byte[] overheadCarryover = new byte[OverheadCarryoverSize];
         private int overheadBytes = 0;
 
-        public bool TryUnpackData(int bytesReceived, byte[] data, out List<byte[]> unpackedData)
+        public bool TryUnpackData(int bytesReceived, byte[] data, out List<UnpackedData> unpackedData)
         {
             if (overheadBytes > 0)
             {
@@ -27,7 +28,7 @@ namespace MetaMitPlus.Utils
             }
 
             int unreadBufferData = bytesReceived;
-            unpackedData = new List<byte[]>();
+            unpackedData = new List<UnpackedData>();
 
             while (unreadBufferData > 0)
             {
@@ -37,6 +38,13 @@ namespace MetaMitPlus.Utils
                     {
                         unreadData = BitConverter.ToInt32(data, bytesReceived - unreadBufferData);
                         unreadBufferData -= 4;
+                        if (unreadData < 0)
+                        {
+                            unreadData = -unreadData;
+                            currentData.hasSessionFlags = true;
+                            currentData.sessionFlag = data[bytesReceived - unreadBufferData];
+                            unreadBufferData--;
+                        }
                     }
                     else
                     {
@@ -55,9 +63,11 @@ namespace MetaMitPlus.Utils
 
                 if (unreadData == 0)
                 {
-                    unpackedData.Add(CombineSegments());
+                    currentData.data = CombineSegments();
+                    unpackedData.Add(currentData);
                     dataSegments.Clear();
                     unreadData = -1;
+                    currentData = new UnpackedData();
                 }
             }
 
@@ -75,6 +85,13 @@ namespace MetaMitPlus.Utils
                 offset += array.Length;
             }
             return combinedArray.ToArray();
+        }
+
+        public struct UnpackedData
+        {
+            public bool hasSessionFlags;
+            public byte sessionFlag;
+            public byte[] data;
         }
     }
 }

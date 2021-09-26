@@ -47,6 +47,7 @@ namespace MetaMitStandard
             canStart = false;
             try
             {
+                // move listening to here
                 listener.Bind(Ep);
                 listener.Listen(Backlog);
                 ServerOpen = true;

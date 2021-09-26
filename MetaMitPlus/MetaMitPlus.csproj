@@ -8,4 +8,10 @@
     <Folder Include="Client\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Reference Include="BitManipulation">
+      <HintPath>..\..\..\Unity\Turris\Assets\BitManipulation\netstandard2.0\BitManipulation.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
 </Project>
