@@ -22,7 +22,7 @@ namespace MetaMitPlus.Server
         internal RSAParameters rsaPrivateKey;
         internal byte[] aesKey;
 
-        private MetaMitServer server;
+        private readonly MetaMitServer server;
 
         public bool IsActive { get; private set; } = false;
         public bool IsEncryptionActive => encryptionPhase == EncryptionPhase.Encrypted;
