@@ -146,12 +146,12 @@ namespace MetaMitPlus
         public void Start()
         {
             if (hasStarted) throw new Exception("Tried to restart a MetaMitServer instance");
+            if (isLocalEpNull) throw new Exception("Local EP not provided with \"MetaMitServer.SetLocalEndpoint\"");
+            if (isListenerNull) listener = GetDefaultListenerSocket();
             hasStarted = true;
+            Listening = true;
             try
             {
-                if (isLocalEpNull) throw new Exception("Local EP not provided with \"MetaMitServer.SetLocalEndpoint\"");
-                if (isListenerNull) listener = GetDefaultListenerSocket();
-                Listening = true;
                 listener.Bind(LocalEP);
                 listener.Listen(Backlog);
                 listener.BeginAccept(new AsyncCallback(AcceptCallback), listener);
@@ -195,10 +195,10 @@ namespace MetaMitPlus
         /// <param name="sendOptions">Options for how data will be prepared to send</param>
         public void Broadcast(byte[] data, Func<ClientConnection, bool> shouldSend, SendOptions sendOptions)
         {
-            List<ClientConnection> cachedConnections = (List<ClientConnection>)clientDictionary.Keys;
-            foreach (ClientConnection connection in cachedConnections)
-                if (shouldSend(connection))
-                    connection.Send(data, sendOptions);
+            List<ClientConnection> cachedConnections = new List<ClientConnection>(clientDictionary.Values);
+            foreach (ClientConnection clientConnection in cachedConnections)
+                if (shouldSend(clientConnection))
+                    clientConnection.Send(data, sendOptions);
         }
         /// <summary>
         /// Broadcast data to all connected clients
@@ -220,6 +220,25 @@ namespace MetaMitPlus
             {
                 clientConnection.Disconnect();
             }
+        }
+
+        /// <summary>
+        /// Disconnects all connected clients with a supplied function for allowing or denying
+        /// </summary>
+        /// <param name="shouldDisconnect">A supplied function that decides if a client should be disconnected, called once per client</param>
+        public void DisconnectAll(Func<ClientConnection, bool> shouldDisconnect)
+        {
+            List<ClientConnection> cachedConnections = new List<ClientConnection>(clientDictionary.Values);
+            foreach (ClientConnection clientConnection in cachedConnections)
+                if (shouldDisconnect(clientConnection))
+                    clientConnection.Disconnect();
+        }
+        /// <summary>
+        /// Disconnects all connected clients
+        /// </summary>
+        public void DisconnectAll()
+        {
+            DisconnectAll((_) => { return true; } );
         }
 
         /// <summary>
