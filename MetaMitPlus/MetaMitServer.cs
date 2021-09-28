@@ -12,8 +12,12 @@ namespace MetaMitPlus
 {
     public sealed class MetaMitServer : IDisposable
     {
+        // Possible Ideas:
         // Could add data length receive limit policy in future
         // Hash data when sending and return the hash, on the sent data message give hash back?
+        // Todo:
+        // Make a better builder method maybe struct for start options
+        // make constructor set things readonly
 
         public IPEndPoint LocalEP { get; private set; }
         public bool Listening { get; private set; } = false;
@@ -52,16 +56,6 @@ namespace MetaMitPlus
         public static MetaMitServer NewServer()
         {
             return new MetaMitServer();
-        }
-        /// <summary>
-        /// Gives the default listening socket for the server, useful for setting your own socket options
-        /// </summary>
-        /// <returns>Default listening socket for the server</returns>
-        public static Socket GetDefaultListenerSocket()
-        {
-            Socket listenerSocket = new Socket(AddressFamily.InterNetworkV6, SocketType.Stream, ProtocolType.Tcp);
-            listenerSocket.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IPv6Only, false);
-            return listenerSocket;
         }
         /// <summary>
         /// Forms the local endpoint for the server with the provided port and the privided local ip to use
@@ -380,9 +374,9 @@ namespace MetaMitPlus
         }
         private void HandleReceive(ClientConnection clientConnection, UnpackedData data)
         {
-            if (data.hasSessionFlags)
+            if (data.hasMetadata)
             {
-                if (data.sessionFlag == 0 || data.sessionFlag == 2)
+                if (data.metadata == 0 || data.metadata == 2)
                 {
                     if (clientConnection.receivePolicy.encryptionPolicy == ReceivePolicy.EncryptionPolicy.No)
                     {
@@ -399,7 +393,7 @@ namespace MetaMitPlus
                         return;
                     }
                 }
-                if (data.sessionFlag == 1 || data.sessionFlag == 2)
+                if (data.metadata == 1 || data.metadata == 2)
                 {
                     if (clientConnection.receivePolicy.compressionPolicy == ReceivePolicy.CompressionPolicy.No)
                     {
@@ -416,7 +410,7 @@ namespace MetaMitPlus
                         return;
                     }
                 }
-                else if (data.sessionFlag == 3) // Client giving AES key
+                else if (data.metadata == 3) // Client giving AES key
                 {
                     if (clientConnection.encryptionPhase != ClientConnection.EncryptionPhase.SentRSAPublicKey)
                     {
@@ -431,15 +425,15 @@ namespace MetaMitPlus
                 }
                 else
                 {
-                    DisconnectClient(clientConnection, ClientDisconnectedReason.ProtocolViolation, $"Client used unknown sessionFlag: {data.sessionFlag}");
+                    DisconnectClient(clientConnection, ClientDisconnectedReason.ProtocolViolation, $"Client used unknown sessionFlag: {data.metadata}");
                     return;
                 }
                 
-                if (data.sessionFlag != 3)
+                if (data.metadata != 3)
                 {
                     if (clientConnection.receivePolicy.encryptionPolicy == ReceivePolicy.EncryptionPolicy.Yes)
                     {
-                        if (data.sessionFlag != 0 || data.sessionFlag != 2)
+                        if (data.metadata != 0 || data.metadata != 2)
                         {
                             DisconnectClient(clientConnection, ClientDisconnectedReason.ReceivePolicyViolation, $"Client not using encryption, requested in receive policy");
                             return;
@@ -447,7 +441,7 @@ namespace MetaMitPlus
                     }
                     if (clientConnection.receivePolicy.compressionPolicy == ReceivePolicy.CompressionPolicy.Yes)
                     {
-                        if (data.sessionFlag != 1 || data.sessionFlag != 2)
+                        if (data.metadata != 1 || data.metadata != 2)
                         {
                             DisconnectClient(clientConnection, ClientDisconnectedReason.ReceivePolicyViolation, $"Client not using compression, requested in receive policy");
                             return;

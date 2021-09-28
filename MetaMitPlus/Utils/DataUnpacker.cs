@@ -41,8 +41,8 @@ namespace MetaMitPlus.Utils
                         if (unreadData < 0)
                         {
                             unreadData = -unreadData;
-                            currentData.hasSessionFlags = true;
-                            currentData.sessionFlag = data[bytesReceived - unreadBufferData];
+                            currentData.hasMetadata = true;
+                            currentData.metadata = data[bytesReceived - unreadBufferData];
                             unreadBufferData--;
                         }
                     }
@@ -89,8 +89,8 @@ namespace MetaMitPlus.Utils
 
         public struct UnpackedData
         {
-            public bool hasSessionFlags;
-            public byte sessionFlag;
+            public bool hasMetadata;
+            public byte metadata;
             public byte[] data;
         }
     }
