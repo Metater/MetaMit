@@ -29,8 +29,8 @@ namespace MetaMitPlus
 
         private Socket listener;
 
-        private bool isLocalEpNull => LocalEP == null;
-        private bool isListenerNull => listener == null;
+        private bool IsLocalEpNull => LocalEP == null;
+        private bool IsListenerNull => listener == null;
 
         private List<ClientConnection> connections = new List<ClientConnection>();
         private ConcurrentQueue<ServerEventArgs> queuedEvents = new ConcurrentQueue<ServerEventArgs>();
@@ -140,8 +140,8 @@ namespace MetaMitPlus
         public void Start()
         {
             if (hasStarted) throw new Exception("Tried to restart a MetaMitServer instance");
-            if (isLocalEpNull) throw new Exception("Local EP not provided with \"MetaMitServer.SetLocalEndpoint\"");
-            if (isListenerNull) listener = GetDefaultListenerSocket();
+            if (IsLocalEpNull) throw new Exception("Local EP not provided with \"MetaMitServer.SetLocalEndpoint\"");
+            if (IsListenerNull) listener = GetDefaultListenerSocket();
             hasStarted = true;
             Listening = true;
             try
